@@ -13,3 +13,7 @@ MonoBehaviour:
   m_Name: SRPAsset
   m_EditorClassIdentifier: 
   enableDynamicBatching: 1
+  enableInstancing: 1
+  opaqueDepthMaterial: {fileID: 2100000, guid: feda4a41e1bf5426a8da432421835fc3, type: 2}
+  transparentDepthMaterial: {fileID: 2100000, guid: 8167587adad184cc791e7901ef48d7a0,
+    type: 2}

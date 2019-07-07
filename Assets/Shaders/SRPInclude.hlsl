@@ -30,4 +30,8 @@ float4 UnlitFragment (BasicVertexOutput input) : SV_TARGET {
     return 1;
 }
 
+float4 NoneFragment (BasicVertexOutput input) : SV_TARGET {
+    return 0;
+}
+
 #endif // SRP_INCLUDE
