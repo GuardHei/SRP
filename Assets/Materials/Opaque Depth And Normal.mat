@@ -7,11 +7,11 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: SRP Unlit
-  m_Shader: {fileID: 4800000, guid: 33af3c9594b374bad89d5c91b4c3315a, type: 3}
+  m_Name: Opaque Depth And Normal
+  m_Shader: {fileID: 4800000, guid: ecf56a3f3137746da85b6b22dc92cd76, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 1
+  m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}

@@ -69,3 +69,4 @@ crashlytics-build.properties
 *.DS_STORE
 *.ds_store
 
+Assets/Shaders/.vscode/settings.json

@@ -1,4 +1,4 @@
-﻿Shader "SRP/OpaqueDepth" {
+﻿Shader "SRP/TransparentDepthMin" {
     
     SubShader {
 
@@ -7,6 +7,13 @@
         }
 
         Pass {
+
+            Name "DepthMin"
+
+            Tags {
+                "LightMode"="DepthMin"
+            }
+
             ZTest LEqual
             ZWrite On
 			Cull Front

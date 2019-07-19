@@ -15,22 +15,43 @@ struct BasicVertexInput {
     float4 pos : POSITION;
 };
 
+struct SimpleVertexInput {
+    float4 pos : POSITION;
+    float3 normal : NORMAL;
+};
+
 struct BasicVertexOutput {
     float4 clipPos : SV_POSITION;
 };
 
-BasicVertexOutput UnlitVertex (BasicVertexInput input) {
+struct SimpleVertexOutput {
+    float4 clipPos : SV_POSITION;
+    float3 normal : TEXCOORD0;
+};
+
+float4 GetWorldPosition(float3 pos) {
+    return mul(unity_ObjectToWorld, float4(pos, 1.0));
+}
+
+float4 GetClipPosition(float4 worldPos) {
+    return mul(unity_MatrixVP, worldPos);
+}
+
+float3 GetWorldNormal(float3 normal) {
+    return mul((float3x3) unity_ObjectToWorld, normal);
+}
+
+BasicVertexOutput UnlitVertex(BasicVertexInput input) {
     BasicVertexOutput output;
-	float4 worldPos = mul(unity_ObjectToWorld, float4(input.pos.xyz, 1.0));
-	output.clipPos = mul(unity_MatrixVP, worldPos);
+	output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
 	return output;
 }
 
-float4 UnlitFragment (BasicVertexOutput input) : SV_TARGET {
+float4 UnlitFragment(BasicVertexOutput input) : SV_TARGET {
     return 1;
 }
 
-float4 NoneFragment (BasicVertexOutput input) : SV_TARGET {
+float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
     return 0;
 }
 

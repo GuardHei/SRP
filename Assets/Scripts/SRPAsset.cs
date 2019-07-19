@@ -1,10 +1,7 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using Debug = UnityEngine.Debug;
 using RenderPipeline = UnityEngine.Rendering.RenderPipeline;
 
 [CreateAssetMenu(menuName = "Rendering/SRPAsset")]
@@ -13,13 +10,15 @@ public sealed class SRPAsset : RenderPipelineAsset {
 	public bool enableDynamicBatching = true;
 	public bool enableInstancing = true;
 	public Material opaqueDepthMaterial;
-	public Material transparentDepthMaterial;
+	public Material transparentDepthMinMaterial;
+	public Material transparentDepthMaxMaterial;
 
 	protected override RenderPipeline CreatePipeline() => new SRPipeline {
 		enableDynamicBatching = enableDynamicBatching,
 		enableInstancing = enableInstancing,
 		opaqueDepthMaterial = opaqueDepthMaterial,
-		transparentDepthMaterial = transparentDepthMaterial
+		transparentDepthMinMaterial = transparentDepthMinMaterial,
+		transparentDepthMaxMaterial = transparentDepthMaxMaterial
 	};
 }
 
@@ -36,14 +35,18 @@ public sealed class SRPipeline : RenderPipeline {
 	public bool enableDynamicBatching = true;
 	public bool enableInstancing = true;
 	public Material opaqueDepthMaterial;
-	public Material transparentDepthMaterial;
+	public Material transparentDepthMinMaterial;
+	public Material transparentDepthMaxMaterial;
 
-	private RenderTexture _opaqueDepthTexture;
-	private RenderTexture _transparentMinDepthTexture;
-	private RenderTexture _transparentMaxDepthTexture;
-	private RenderTexture _depthBoundTexture;
+	private RenderTargetIdentifier _transparentMinDepthId;
+	private RenderTargetIdentifier _transparentMaxDepthId;
+	private RenderTargetIdentifier _opaqueDepthId;
+	private RenderTargetIdentifier _opaqueNormalId;
+	private RenderTargetIdentifier _depthBoundId;
 	
 	private readonly CommandBuffer _currentBuffer = new CommandBuffer { name = "Render Camera" };
+	
+	private DrawingSettings _drawSettings;
 
 	public SRPipeline() {
 		GraphicsSettings.lightsUseLinearIntensity = true;
@@ -52,7 +55,13 @@ public sealed class SRPipeline : RenderPipeline {
 	}
 
 	private void Init() {
+		foreach (var camera in Camera.allCameras) camera.forceIntoRenderTexture = true;
 		
+		_transparentMinDepthId = new RenderTargetIdentifier(ShaderManager.TRANSPARENT_MIN_DEPTH_TEXTURE);
+		_transparentMaxDepthId = new RenderTargetIdentifier(ShaderManager.TRANSPARENT_MAX_DEPTH_TEXTURE);
+		_opaqueDepthId = new RenderTargetIdentifier(ShaderManager.OPAQUE_DEPTH_TEXTURE);
+		_opaqueNormalId = new RenderTargetIdentifier(ShaderManager.OPAQUE_NORMAL_TEXTURE);
+		_depthBoundId = new RenderTargetIdentifier(ShaderManager.DEPTH_BOUND_TEXTURE);
 	}
 	
 	protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
@@ -60,14 +69,31 @@ public sealed class SRPipeline : RenderPipeline {
 	}
 
 	private void Render(ScriptableRenderContext context, Camera camera) {
-		// 初始化相机渲染属性
-		context.SetupCameraProperties(camera);
+		
+		/*
+		Debug.Log("+++");
+		
+		for (int i = 0; i < opaqueDepthMaterial.passCount; i++) {
+			Debug.Log(i + " " + opaqueDepthMaterial.GetPassName(i) + " " + opaqueDepthMaterial.GetShaderPassEnabled(opaqueDepthMaterial.GetPassName(i)));
+			// Debug.Log(i);
+		}
+		*/
+		
+		/*
+		Debug.Log("---");
+		
+		for (int i = 0; i < transparentDepthMaterial.passCount; i++) {
+			Debug.Log(i + " " + transparentDepthMaterial.GetPassName(i) + " " + transparentDepthMaterial.GetShaderPassEnabled(transparentDepthMaterial.GetPassName(i)));
+		}
+		*/
 		
 		// 清除渲染目标
 		var clearFlags = camera.clearFlags;
+		
 		_currentBuffer.ClearRenderTarget((clearFlags & CameraClearFlags.Depth) != 0, (clearFlags & CameraClearFlags.Color) != 0, camera.backgroundColor);
 		
-		_currentBuffer.BeginSample("Render Camera");
+		// 设置观察矩阵和投影矩阵
+		context.SetupCameraProperties(camera);
 		
 		context.ExecuteCommandBuffer(_currentBuffer);
 		_currentBuffer.Clear();
@@ -82,71 +108,56 @@ public sealed class SRPipeline : RenderPipeline {
 		var cull = context.Cull(ref cullingParameters);
 		
 		// 渲染深度图
+		_drawSettings.enableDynamicBatching = enableDynamicBatching;
+		_drawSettings.enableInstancing = enableInstancing;
+		
 		var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.CommonOpaque };
-		var drawSettings = new DrawingSettings {
-			enableDynamicBatching = enableDynamicBatching,
-			enableInstancing = enableInstancing,
-			sortingSettings = sortingSettings
-		};
 
 		var filterSettings = FilteringSettings.defaultValue;
 		filterSettings.layerMask = camera.cullingMask;
-		filterSettings.sortingLayerRange = SortingLayerRange.all;
-		filterSettings.renderQueueRange = RenderQueueRange.opaque;
+		filterSettings.renderQueueRange = RenderQueueRange.transparent;
 		
-		_currentBuffer.BeginSample("Render Opaque Depth");
+		var pixelWidth = camera.pixelWidth;
+		var pixelHeight = camera.pixelHeight;
 		
-		_depthBoundTexture = RenderTexture.GetTemporary(camera.pixelWidth, camera.pixelHeight, 0, RenderTextureFormat.RG16, RenderTextureReadWrite.Default);
+		// 创建半透明物体的最大/最小深度图
+		// 创建不透明物体的深度/法线图
+		GenerateRTs(pixelWidth, pixelHeight);
 		
-		// 创建不透明物体的深度图，绑定为渲染目标，初始化为最大值
-		// 写入不透明物体的最小深度值（最近的片元）
-		_opaqueDepthTexture = RenderTexture.GetTemporary(camera.pixelWidth, camera.pixelHeight, 16, RenderTextureFormat.Depth, RenderTextureReadWrite.Default);
-		_currentBuffer.SetRenderTarget(_depthBoundTexture, _opaqueDepthTexture);
-		_currentBuffer.ClearRenderTarget(true, true, DepthTextureClearColor, 1);
-		
-		context.ExecuteCommandBuffer(_currentBuffer);
-		_currentBuffer.Clear();
-		
-		// 渲染不透明物体的深度图
-		drawSettings.overrideMaterial = opaqueDepthMaterial;
-		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
-		
-		_currentBuffer.EndSample("Render Opaque Depth");
-		
-		_currentBuffer.BeginSample("Render Transparent Max Depth");
-		
-		// 创建半透明物体的深度图，绑定为渲染目标，初始化为最大值
+		// 绑定半透明物体的深度最小值图为渲染目标，初始化为最大值
 		// 写入半透明物体的最小深度值（最近的片元）
-		_transparentMaxDepthTexture = RenderTexture.GetTemporary(camera.pixelWidth, camera.pixelHeight, 16, RenderTextureFormat.Depth, RenderTextureReadWrite.Default);
-		_currentBuffer.SetRenderTarget(_depthBoundTexture, _transparentMinDepthTexture);
-		_currentBuffer.ClearRenderTarget(true, true, DepthTextureClearColor, 1);
+		ResetRenderTarget(_opaqueNormalId, _transparentMinDepthId, true, false, 1, DepthTextureClearColor);
 		
-		context.ExecuteCommandBuffer(_currentBuffer);
-		_currentBuffer.Clear();
+		ExecuteCurrentBuffer(context);
 		
-		// 渲染半透明物体的深度最小值图，过程定义在着色器的第一个Pass里
-		drawSettings.overrideMaterial = transparentDepthMaterial;
-		drawSettings.overrideMaterialPassIndex = 0;
-		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
+		// 渲染半透明物体的深度最小值图
+		_drawSettings.overrideMaterial = transparentDepthMinMaterial;
+		_drawSettings.overrideMaterialPassIndex = 0;
+		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
-		_currentBuffer.EndSample("Render Transparent Max Depth");
+		// 绑定半透明物体的深度最大值图为渲染目标，初始化为最小值
+		// 写入半透明物体的最大深度值（最远的片元）
+		ResetRenderTarget(_opaqueNormalId, _transparentMaxDepthId, true, false, 0, DepthTextureClearColor);
 		
-		_currentBuffer.BeginSample("Render Transparent Min Depth");
+		ExecuteCurrentBuffer(context);
 		
-		// 创建半透明物体的深度图，绑定为渲染目标，初始化为最小值
-		// 写入半透明物体的最d大深度值（最近的片元）
-		_transparentMinDepthTexture = RenderTexture.GetTemporary(camera.pixelWidth, camera.pixelHeight, 16, RenderTextureFormat.Depth, RenderTextureReadWrite.Default);
-		_currentBuffer.SetRenderTarget(_depthBoundTexture, _transparentMaxDepthTexture);
-		_currentBuffer.ClearRenderTarget(true, true, DepthTextureClearColor, 0);
+		// 渲染半透明物体的深度最大值图
+		_drawSettings.SetShaderPassName(0, ShaderTagManager.DepthMax);
+		_drawSettings.overrideMaterial = transparentDepthMaxMaterial;
+		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
-		context.ExecuteCommandBuffer(_currentBuffer);
-		_currentBuffer.Clear();
+		// 绑定不透明物体的深度图为渲染目标，初始化为最大值
+		// 法线图是Color Buffer，和深度图一起被绘制
+		// 写入不透明物体的最小深度值（最近的片元）和归一化后的法线
+		ResetRenderTarget(_opaqueNormalId, _opaqueDepthId, true, true, 1, Color.black);
 		
-		// 渲染半透明物体的深度最大值图，过程定义在着色器的第二个Pass里
-		drawSettings.overrideMaterialPassIndex = 1;
-		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
+		ExecuteCurrentBuffer(context);
 		
-		_currentBuffer.EndSample("Render Transparent Min Depth");
+		// 渲染不透明物体的法线图和深度图
+		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
+		_drawSettings.overrideMaterial = opaqueDepthMaterial;
+		filterSettings.renderQueueRange = RenderQueueRange.opaque;
+		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
 		// 绑定渲染目标为相机
 		context.SetupCameraProperties(camera);
@@ -154,29 +165,57 @@ public sealed class SRPipeline : RenderPipeline {
 		// 渲染不透明物体
 		// 【暂时】使用无光照着色器
 		sortingSettings.criteria = SortingCriteria.CommonOpaque;
-		drawSettings.overrideMaterial = null;
-		drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
-		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
+		_drawSettings.overrideMaterial = null;
+		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
+		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
 		// 渲染天空盒
 		if ((camera.clearFlags & CameraClearFlags.Skybox) != 0) context.DrawSkybox(camera);
 
 		// 渲染半透明物体
 		sortingSettings.criteria = SortingCriteria.CommonTransparent;
-		drawSettings.sortingSettings = sortingSettings;
+		_drawSettings.sortingSettings = sortingSettings;
 		filterSettings.renderQueueRange = RenderQueueRange.transparent;
-		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
+		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
-		// 释放深度贴图
-		RenderTexture.ReleaseTemporary(_opaqueDepthTexture);
-		RenderTexture.ReleaseTemporary(_transparentMaxDepthTexture);
-		RenderTexture.ReleaseTemporary(_transparentMinDepthTexture);
+		_currentBuffer.Blit(ShaderManager.OPAQUE_DEPTH_TEXTURE, BuiltinRenderTextureType.CurrentActive);
 		
-		_currentBuffer.EndSample("Render Camera");
+		ExecuteCurrentBuffer(context);
 		
+		// 释放临时申请的贴图
+		ReleaseRTs();
+		
+/*		
+#if UNITY_EDITOR
+		context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
+#endif
+*/		
+
+		context.Submit();
+	}
+
+	private void ExecuteCurrentBuffer(ScriptableRenderContext context) {
 		context.ExecuteCommandBuffer(_currentBuffer);
 		_currentBuffer.Clear();
-		
-		context.Submit();
+	}
+
+	private void ResetRenderTarget(RenderTargetIdentifier colorBuffer, RenderTargetIdentifier depthBuffer, bool clearDepth, bool clearColor, float depth, Color color) {
+		_currentBuffer.SetRenderTarget(colorBuffer, depthBuffer);
+		_currentBuffer.ClearRenderTarget(clearDepth, clearColor, color, depth);
+	}
+
+	private void GenerateRTs(int pixelWidth, int pixelHeight) {
+		_currentBuffer.GetTemporaryRT(ShaderManager.TRANSPARENT_MIN_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
+		_currentBuffer.GetTemporaryRT(ShaderManager.TRANSPARENT_MAX_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R8G8B8A8_SRGB);
+	}
+
+	private void ReleaseRTs() {
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TRANSPARENT_MIN_DEPTH_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TRANSPARENT_MAX_DEPTH_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
 	}
 }
