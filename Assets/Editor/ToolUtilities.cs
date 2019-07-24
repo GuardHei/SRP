@@ -15,7 +15,5 @@ public class ToolUtilities {
 	}
 
 	[MenuItem("Tools/Check ZBuffer State")]
-	public static void CheckZBufferState() {
-		Debug.Log("Reversed ZBuffer is " + (SystemInfo.usesReversedZBuffer ? "on" : "off"));
-	}
+	public static void CheckZBufferState() => Debug.Log("Reversed ZBuffer is " + (SystemInfo.usesReversedZBuffer ? "on" : "off"));
 }

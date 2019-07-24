@@ -19,3 +19,4 @@ MonoBehaviour:
     type: 2}
   transparentDepthMaxMaterial: {fileID: 2100000, guid: b3cad2510ebb24ac2baf75e8ee8fbe9d,
     type: 2}
+  testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}

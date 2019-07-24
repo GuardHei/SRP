@@ -5,7 +5,7 @@ A customized forward+ render pipeline for Unity
 
 ## Planned Features
 1. Supports forward+ render path
-2. Supports cluster based rendering with transparent objects
+2. Supports tile-based rendering with transparent objects
 3. Supports realtime directional light\spot light\point light shadows
 4. Supports cascaded shadowmap
 5. Supports volumetric lighting

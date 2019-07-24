@@ -12,13 +12,15 @@ public sealed class SRPAsset : RenderPipelineAsset {
 	public Material opaqueDepthMaterial;
 	public Material transparentDepthMinMaterial;
 	public Material transparentDepthMaxMaterial;
+	public Material testMaterial;
 
 	protected override RenderPipeline CreatePipeline() => new SRPipeline {
 		enableDynamicBatching = enableDynamicBatching,
 		enableInstancing = enableInstancing,
 		opaqueDepthMaterial = opaqueDepthMaterial,
 		transparentDepthMinMaterial = transparentDepthMinMaterial,
-		transparentDepthMaxMaterial = transparentDepthMaxMaterial
+		transparentDepthMaxMaterial = transparentDepthMaxMaterial,
+		testMaterial = testMaterial
 	};
 }
 
@@ -37,6 +39,7 @@ public sealed class SRPipeline : RenderPipeline {
 	public Material opaqueDepthMaterial;
 	public Material transparentDepthMinMaterial;
 	public Material transparentDepthMaxMaterial;
+	public Material testMaterial;
 
 	private RenderTargetIdentifier _transparentMinDepthId;
 	private RenderTargetIdentifier _transparentMaxDepthId;
@@ -69,24 +72,6 @@ public sealed class SRPipeline : RenderPipeline {
 	}
 
 	private void Render(ScriptableRenderContext context, Camera camera) {
-		
-		/*
-		Debug.Log("+++");
-		
-		for (int i = 0; i < opaqueDepthMaterial.passCount; i++) {
-			Debug.Log(i + " " + opaqueDepthMaterial.GetPassName(i) + " " + opaqueDepthMaterial.GetShaderPassEnabled(opaqueDepthMaterial.GetPassName(i)));
-			// Debug.Log(i);
-		}
-		*/
-		
-		/*
-		Debug.Log("---");
-		
-		for (int i = 0; i < transparentDepthMaterial.passCount; i++) {
-			Debug.Log(i + " " + transparentDepthMaterial.GetPassName(i) + " " + transparentDepthMaterial.GetShaderPassEnabled(transparentDepthMaterial.GetPassName(i)));
-		}
-		*/
-		
 		// 清除渲染目标
 		var clearFlags = camera.clearFlags;
 		
@@ -142,7 +127,7 @@ public sealed class SRPipeline : RenderPipeline {
 		ExecuteCurrentBuffer(context);
 		
 		// 渲染半透明物体的深度最大值图
-		_drawSettings.SetShaderPassName(0, ShaderTagManager.DepthMax);
+		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
 		_drawSettings.overrideMaterial = transparentDepthMaxMaterial;
 		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
@@ -178,7 +163,7 @@ public sealed class SRPipeline : RenderPipeline {
 		filterSettings.renderQueueRange = RenderQueueRange.transparent;
 		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
 		
-		_currentBuffer.Blit(ShaderManager.OPAQUE_DEPTH_TEXTURE, BuiltinRenderTextureType.CurrentActive);
+		_currentBuffer.Blit(ShaderManager.OPAQUE_DEPTH_TEXTURE, BuiltinRenderTextureType.CurrentActive, testMaterial);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -208,7 +193,7 @@ public sealed class SRPipeline : RenderPipeline {
 		_currentBuffer.GetTemporaryRT(ShaderManager.TRANSPARENT_MIN_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
 		_currentBuffer.GetTemporaryRT(ShaderManager.TRANSPARENT_MAX_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth);
-		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R8G8B8A8_SRGB);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R8G8B8A8_SNorm);
 	}
 
 	private void ReleaseRTs() {

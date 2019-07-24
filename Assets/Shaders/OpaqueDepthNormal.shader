@@ -16,10 +16,9 @@
 
             ZTest LEqual
             ZWrite On
-			Cull Front
+			Cull Back
 
             HLSLPROGRAM
-		    
 			#pragma target 3.5
 
 			#pragma multi_compile_instancing
@@ -38,8 +37,8 @@
 
             float4 Fragment(SimpleVertexOutput input) : SV_TARGET {
                 float3 normal = normalize(input.normal);
-                // return float4(normal, 1);
-                return float4(0, 1, .5, 1);
+                // normal = normal / 2 + .5;
+                return float4(normal, 1);
             }
 
 		    ENDHLSL
