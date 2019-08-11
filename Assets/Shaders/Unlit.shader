@@ -1,9 +1,5 @@
 ﻿Shader "SRP/Unlit" {
 	
-	Properties {
-	    
-	}
-	
 	SubShader {
 		
 		Pass {

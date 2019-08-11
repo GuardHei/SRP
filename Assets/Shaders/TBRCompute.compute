@@ -1,0 +1,95 @@
+﻿#pragma kernel GenerateDepthBound
+#pragma kernel CullLight
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+
+#include "ComputeUtils.hlsl"
+
+#define MAXLIGHTPERTILE 64
+
+RWTexture2D<float2> _DepthBoundTexture;
+RWTexture3D<uint> _CulledPointLightTexture;
+RWTexture3D<uint> _CulledSpotLightTexture;
+Texture2D<float> _OpaqueDepthTexture;
+SamplerState sampler_OpaqueDepthTexture;
+
+StructuredBuffer<PointLight> _PointLightBuffer;
+StructuredBuffer<SpotLight> _SpotLightBuffer;
+
+uint _PointLightCount;
+uint _SpotLightCount;
+float2 _TileNumber;
+float3 _CameraForward;
+float3 _CameraPosition;
+float4x4 _InverseVP;
+
+[numthreads(16,9,1)]
+void GenerateDepthBound(uint2 id : SV_DISPATCHTHREADID) {
+    const float tileResolution = 16.0;
+    float2 uv;
+    float2 offset;
+    uv = id / _TileNumber;
+    offset.x = 1 / _TileNumber.x / tileResolution;
+    offset.y = 1 / _TileNumber.y / tileResolution;
+
+    float min = 1;
+    float max = 0;
+
+    for (int i = 0; i < tileResolution; ++i) {
+        for (int j = 0; j < tileResolution; ++j) {
+            float2 realUV = uv + i * offset;
+            float opaqueDepth = _OpaqueDepthTexture.SampleLevel(sampler_OpaqueDepthTexture, realUV, 0);
+
+            if (opaqueDepth > max) max = opaqueDepth;
+            if (opaqueDepth < min) min = opaqueDepth;
+        }
+    }
+
+    _DepthBoundTexture[id.xy] = float2(min, max);
+}
+
+[numthreads(16, 9, 1)]
+void CullLight(uint2 id : SV_DISPATCHTHREADID) {
+    const float nearZ = 1;
+    float2 minMax;
+    float4 cornerUV;
+    cornerUV.xy = id / _TileNumber;
+    cornerUV.zw = cornerUV.xy + 1.0 / _TileNumber;
+    cornerUV.xy = cornerUV.xy * 2 - 1;
+    cornerUV.zw = cornerUV.zw * 2 - 1;
+
+#if UNITY_REVERSED_Z
+    float flagA = 1;
+    float flagB = -1;
+    minMax = _DepthBoundTexture[id].yx;
+#else
+    float flagA = -1;
+    float flagB = 1;
+    minMax = _DepthBoundTexture[id].xy;
+#endif
+
+    float2 eyeDepthBound;
+    eyeDepthBound.x = LinearEyeDepth(minMax.x, _ZBufferParams);
+    eyeDepthBound.y = LinearEyeDepth(minMax.y, _ZBufferParams);
+
+    float4 planes[6];
+
+    planes[0] = GetPlane(mul(_InverseVP, float4(flagA, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(flagB, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.w, .5, 1)));
+    planes[1] = GetPlane(mul(_InverseVP, float4(flagB, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(flagA, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.y, .5, 1)));
+    planes[2] = GetPlane(mul(_InverseVP, float4(cornerUV.x, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, 0, .5, 1)));
+    planes[3] = GetPlane(mul(_InverseVP, float4(cornerUV.z, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, 0, .5, 1)));
+    planes[4] = GetPlane(-_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.x);
+    planes[5] = GetPlane(_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.y);
+
+    uint lightCount = 0;
+
+    for (uint i = 0; i < _PointLightCount && lightCount < MAXLIGHTPERTILE; ++i) {
+        PointLight light = _PointLightBuffer[i];
+        if (SphereIntersect(light.sphere, planes) > .5) {
+            _CulledPointLightTexture[uint3(id, lightCount + 1)] = i;
+            lightCount++;
+        }
+    }
+
+    _CulledPointLightTexture[uint3(id, 0)] = lightCount;
+}

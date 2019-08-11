@@ -21,8 +21,6 @@
             HLSLPROGRAM
 			#pragma target 3.5
 
-			#pragma multi_compile_instancing
-
 			#pragma vertex Vertex
 			#pragma fragment Fragment
 
@@ -38,6 +36,7 @@
             float4 Fragment(SimpleVertexOutput input) : SV_TARGET {
                 float3 normal = normalize(input.normal);
                 // normal = normal / 2 + .5;
+                // if (normal.x < 0) return float4(0, 0, 1, 1);
                 return float4(normal, 1);
             }
 

@@ -1,8 +1,8 @@
 ﻿Shader "SRP/TransparentDepthMax" {
-    
+
     SubShader {
 
-        Tags { 
+        Tags {
             "RenderType"="Opaque"
         }
 

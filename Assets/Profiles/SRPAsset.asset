@@ -12,11 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3e2b0c7a63954483899575263c80a34, type: 3}
   m_Name: SRPAsset
   m_EditorClassIdentifier: 
-  enableDynamicBatching: 1
-  enableInstancing: 1
-  opaqueDepthMaterial: {fileID: 2100000, guid: feda4a41e1bf5426a8da432421835fc3, type: 2}
-  transparentDepthMinMaterial: {fileID: 2100000, guid: 8167587adad184cc791e7901ef48d7a0,
-    type: 2}
-  transparentDepthMaxMaterial: {fileID: 2100000, guid: b3cad2510ebb24ac2baf75e8ee8fbe9d,
-    type: 2}
-  testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
+  params:
+    enableDynamicBatching: 1
+    enableInstancing: 1
+    depthTileResolution: 16
+    opaqueDepthNormalMaterial: {fileID: 2100000, guid: feda4a41e1bf5426a8da432421835fc3,
+      type: 2}
+    transparentDepthMinMaterial: {fileID: 2100000, guid: 8167587adad184cc791e7901ef48d7a0,
+      type: 2}
+    transparentDepthMaxMaterial: {fileID: 2100000, guid: b3cad2510ebb24ac2baf75e8ee8fbe9d,
+      type: 2}
+    testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
+    tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
+    testMaterialOn: 0
+    depthBoundOn: 0
+    gizmosOn: 0
