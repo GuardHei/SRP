@@ -24,6 +24,6 @@ MonoBehaviour:
       type: 2}
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
     tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
-    testMaterialOn: 0
+    testMaterialOn: 1
     depthBoundOn: 0
-    gizmosOn: 0
+    gizmosOn: 1

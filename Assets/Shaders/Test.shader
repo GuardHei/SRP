@@ -39,10 +39,11 @@
 
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * input.uv.x / 16.0, _ScreenParams.y * input.uv.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];
-                lightCount = min(lightCount, 1);
+                // lightCount = min(lightCount, 1);
 
                 float4 color = float4(0, 0, 0, 1);
 
+/*
                 [loop]
                 for (uint i = 0; i < lightCount; ++i) {
                     PointLight light = _PointLightBuffer[_CulledPointLightTexture[uint3(lightTextureIndex, i + 1)]];
@@ -52,10 +53,23 @@
                 // color = float4(lightTextureIndex.x / 160.0, lightTextureIndex.y / 90.0, 0, 1);
 
                 // return float4(input.uv, 0, 1);
+*/
 
+                switch (lightCount) {
+                    case 1: color.r = 1; break;
+                    case 2: color.g = 1; break;
+                    case 3: color.b = 1; break;
+                    case 4: color.rg = float2(.5, .5); break;
+                    case 5: color.rb = float2(.5, .5); break;
+                    case 6: color.gb = float2(.5, .5); break;
+                }
+
+/*
                 if (lightCount == 1) color.r = 1;
                 else if (lightCount == 2) color.g = 1;
                 else if (lightCount == 3) color.b = 1;
+                else if (lightCount == 4) color.rg = float2(.5, .5);
+*/
                 
                 return color;
             }

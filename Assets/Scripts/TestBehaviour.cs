@@ -10,6 +10,7 @@ using UnityEngine.UI;
 public class TestBehaviour : MonoBehaviour {
 
 	public Color color;
+	public float intensity;
 	public float range;
 	public bool draw;
 	public Light[] lights;
@@ -25,6 +26,7 @@ public class TestBehaviour : MonoBehaviour {
 	private void OnValidate() {
 		foreach (var light in lights) {
 			light.color = color;
+			light.intensity = intensity;
 			light.range = range;
 		}
 	}

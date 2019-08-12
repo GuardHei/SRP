@@ -86,11 +86,15 @@
                     float3 lightDiff = light.sphere.xyz - input.worldPos;
                     float3 lightDir = normalize(lightDiff);
                     float diffuse = saturate(dot(normal, lightDir));
-                    float distanceSqr = max(dot(lightDiff, lightDiff), .00001);
+                    float3 lightDiffDot = dot(lightDiff, lightDiff);
+                    float distanceSqr = max(lightDiffDot, .00001);
+                    float rangeFade = lightDiffDot * 1.0 / max(light.sphere.w * light.sphere.w, .00001);
+                    rangeFade = saturate(1.0 - rangeFade * rangeFade);
+                    rangeFade *= rangeFade;
                     diffuse /= distanceSqr;
-                    diffuse = length(lightDiff) > light.sphere.w ? 0 : 1;
+                    diffuse *= rangeFade;
+                    // float range = length(lightDiff) > light.sphere.w ? 0 : 1;
                     litColor += diffuse * light.color;
-                    // litColor += diffuse * float3(1, 1, 1);
                 }
 
                 return float4(litColor * color, 1);

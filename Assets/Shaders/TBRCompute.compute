@@ -11,7 +11,7 @@ RWTexture2D<float2> _DepthBoundTexture;
 RWTexture3D<uint> _CulledPointLightTexture;
 RWTexture3D<uint> _CulledSpotLightTexture;
 Texture2D<float> _OpaqueDepthTexture;
-SamplerState sampler_OpaqueDepthTexture;
+// SamplerState sampler_OpaqueDepthTexture;
 
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
@@ -25,21 +25,16 @@ float4x4 _InverseVP;
 
 [numthreads(16,9,1)]
 void GenerateDepthBound(uint2 id : SV_DISPATCHTHREADID) {
-    const float tileResolution = 16.0;
-    float2 uv;
-    float2 offset;
-    uv = id / _TileNumber;
-    offset.x = 1 / _TileNumber.x / tileResolution;
-    offset.y = 1 / _TileNumber.y / tileResolution;
+    const uint tileResolution = 16;
+    uint baseX = id.x * tileResolution;
+    uint baseY = id.y * tileResolution;
 
     float min = 1;
     float max = 0;
 
-    for (int i = 0; i < tileResolution; ++i) {
-        for (int j = 0; j < tileResolution; ++j) {
-            float2 realUV = uv + i * offset;
-            float opaqueDepth = _OpaqueDepthTexture.SampleLevel(sampler_OpaqueDepthTexture, realUV, 0);
-
+    for (uint i = 0; i < tileResolution; ++i) {
+        for (uint j = 0; j < tileResolution; ++j) {
+            float opaqueDepth = _OpaqueDepthTexture[uint2(baseX + i, baseY + j)];
             if (opaqueDepth > max) max = opaqueDepth;
             if (opaqueDepth < min) min = opaqueDepth;
         }
