@@ -62,7 +62,8 @@
                 float2 screenUV = input.screenPos.xy / input.screenPos.w;
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * screenUV.x / 16.0, _ScreenParams.y * screenUV.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];
-                float3 litColor = float3(0, 0, 0);
+                float3 litColor = DefaultDirectionLit(normal);
+                // litColor = float3(0, 0, 0);
 
 /*
                 lightCount = min(lightCount, 1);
@@ -81,21 +82,7 @@
 */
 
                 [loop]
-                for (uint i = 0; i < lightCount; ++i) {
-                    PointLight light = _PointLightBuffer[_CulledPointLightTexture[uint3(lightTextureIndex, i + 1)]];
-                    float3 lightDiff = light.sphere.xyz - input.worldPos;
-                    float3 lightDir = normalize(lightDiff);
-                    float diffuse = saturate(dot(normal, lightDir));
-                    float3 lightDiffDot = dot(lightDiff, lightDiff);
-                    float distanceSqr = max(lightDiffDot, .00001);
-                    float rangeFade = lightDiffDot * 1.0 / max(light.sphere.w * light.sphere.w, .00001);
-                    rangeFade = saturate(1.0 - rangeFade * rangeFade);
-                    rangeFade *= rangeFade;
-                    diffuse /= distanceSqr;
-                    diffuse *= rangeFade;
-                    // float range = length(lightDiff) > light.sphere.w ? 0 : 1;
-                    litColor += diffuse * light.color;
-                }
+                for (uint i = 0; i < lightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
 
                 return float4(litColor * color, 1);
 

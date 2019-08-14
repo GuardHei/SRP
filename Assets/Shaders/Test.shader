@@ -62,6 +62,10 @@
                     case 4: color.rg = float2(.5, .5); break;
                     case 5: color.rb = float2(.5, .5); break;
                     case 6: color.gb = float2(.5, .5); break;
+                    case 7: color.rgb = float3(.5, .5, .5); break;
+                    case 8: color.rg = float2(1, 1); break;
+                    case 9: color.rb = float2(1, 1); break;
+                    case 10: color.gb = float2(1, 1); break;
                 }
 
 /*

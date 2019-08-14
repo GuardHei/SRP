@@ -17,14 +17,6 @@ Texture3D<uint> _CulledSpotLightTexture;
 TEXTURE2D(_OpaqueDepthTexture);
 SAMPLER(sampler_OpaqueDepthTexture);
 
-/*
-TEXTURE3D(_CulledPointLightTexture);
-SAMPLER(sampler_CulledPointLightTexture);
-
-TEXTURE3D(_CulledSpotLightTexture);
-SAMPLER(sampler_CulledSpotLightTexture);
-*/
-
 CBUFFER_START(UnityPerFrame)
     float4x4 unity_MatrixVP;
     float4 _WorldSpaceCameraPos;
@@ -33,6 +25,8 @@ CBUFFER_START(UnityPerFrame)
     float4 _OpaqueDepthTexture_ST;
     float4 _CulledPointLightTexture_ST;
     float4 _CulledSpotLightTexture_ST;
+    float3 _SunlightColor;
+    float3 _SunlightDirection;
 CBUFFER_END
 
 CBUFFER_START(UnityPerDraw)
@@ -42,6 +36,10 @@ CBUFFER_END
 CBUFFER_START(UnityPerMaterial)
     float4 _MainTex_ST;
 CBUFFER_END
+
+//////////////////////////////////////////
+// Built-in Vertex Input/Output Structs //
+//////////////////////////////////////////
 
 struct BasicVertexInput {
     float4 pos : POSITION;
@@ -71,6 +69,10 @@ struct ImageVertexOutput {
     float2 uv : TEXCOORD0;
 };
 
+///////////////////////////////
+// Built-in Helper Functions //
+///////////////////////////////
+
 inline float4 GetWorldPosition(float3 pos) {
     return mul(unity_MatrixM, float4(pos, 1.0));
 }
@@ -98,21 +100,9 @@ inline float3 WorldSpaceViewDirection(float3 worldPos) {
     return _WorldSpaceCameraPos.xyz - worldPos;
 }
 
-inline float LightSmoothFalloff(float sqrDist, float range) {
-    float a = sqrDist * range * range;
-    a *= a;
-    a = saturate(1 - a);
-    return a * a;
-}
-
-inline float LightDistanceFalloff(float3 lightDiff, float range) {
-    float sqrDist = dot(lightDiff, lightDiff);
-    return 1 / (max(sqrDist, .000001)) * LightSmoothFalloff(sqrDist, range);
-}
-
-inline float LightDistanceFalloff(float sqrDist, float range) {
-    return 1 / (max(sqrDist, .000001)) * LightSmoothFalloff(sqrDist, range);
-}
+//////////////////////////////////////
+// Built-in Vertex/Fragment Shaders //
+//////////////////////////////////////
 
 BasicVertexOutput UnlitVertex(BasicVertexInput input) {
     BasicVertexOutput output;
@@ -133,6 +123,34 @@ float4 UnlitFragment(BasicVertexOutput input) : SV_TARGET {
 
 float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
     return 0;
+}
+
+////////////////////////
+// Lighting Functions //
+////////////////////////
+
+inline float3 DefaultDirectionLit(float3 worldNormal) {
+    float diffuse = saturate(dot(worldNormal, _SunlightDirection));
+    return diffuse * _SunlightColor;
+}
+
+inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
+    PointLight light = _PointLightBuffer[_CulledPointLightTexture[lightIndex]];
+    float3 lightDiff = light.sphere.xyz - worldPos;
+    float3 lightDir = normalize(lightDiff);
+    float diffuse = saturate(dot(worldNormal, lightDir));
+    float3 lightDiffDot = dot(lightDiff, lightDiff);
+    float distanceSqr = max(lightDiffDot, .00001);
+    float rangeFade = lightDiffDot * 1.0 / max(light.sphere.w * light.sphere.w, .00001);
+    rangeFade = saturate(1.0 - rangeFade * rangeFade);
+    rangeFade *= rangeFade;
+    diffuse /= distanceSqr;
+    diffuse *= rangeFade;
+    return diffuse * light.color;
+}
+
+inline float3 DefaultSpotLit() {
+    return float3(0, 0, 0);
 }
 
 #endif // SRP_INCLUDE

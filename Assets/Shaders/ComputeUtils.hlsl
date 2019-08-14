@@ -22,7 +22,9 @@ struct SpotLight {
     float nearClip;
 };
 
-float4 _ZBufferParams;
+CBUFFER_START(UnityPerFrame)
+    float4 _ZBufferParams;
+CBUFFER_END
 
 inline float4 GetPlane(float3 normal, float3 vertex) {
     return float4(normal, -dot(normal, vertex));

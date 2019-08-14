@@ -181,6 +181,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		var pointLightIndex = 0;
 		var spotLightIndex = 0;
+		
+		var sunlightColor = new Vector4(0, 0, 0);
+		var sunlightDirection = new Vector4(0, 0, 0);
 
 		for (int i = 0, l = allLights.Length; i < l; i++) {
 			var visibleLight = allLights[i];
@@ -195,13 +198,22 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 					pointLights[pointLightIndex] = pointLight;
 					pointLightIndex++;
-					
 					break;
 				case LightType.Spot:
 					spotLightIndex++;
 					break;
+				case LightType.Directional:
+					sunlightDirection = visibleLight.localToWorldMatrix.GetColumn(2);
+					sunlightDirection.x = -sunlightDirection.x;
+					sunlightDirection.y = -sunlightDirection.y;
+					sunlightDirection.z = -sunlightDirection.z;
+					sunlightColor = visibleLight.finalColor;
+					break;
 			}
 		}
+		
+		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_COLOR, sunlightColor);
+		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_DIRECTION, sunlightDirection);
 		
 		Extensions.Resize(ref _pointLightBuffer, pointLightCount);
 		Extensions.Resize(ref _pointLightBuffer, spotLightCount);
@@ -338,15 +350,12 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	}
 }
 
+[Serializable]
 public struct Point {
 	public float3 position;
 }
 
-public struct PointLight {
-	public float3 color;
-	public float4 sphere;
-}
-
+[Serializable]
 public struct Cone {
 	public float3 vertex;
 	public float height;
@@ -361,6 +370,13 @@ public struct Cone {
 	}
 }
 
+[Serializable]
+public struct PointLight {
+	public float3 color;
+	public float4 sphere;
+}
+
+[Serializable]
 public struct SpotLight {
 	public float3 color;
 	public Cone cone;
