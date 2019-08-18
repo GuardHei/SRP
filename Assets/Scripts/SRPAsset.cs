@@ -177,7 +177,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		}
 		
 		var pointLights = new NativeArray<PointLight>(pointLightCount, Allocator.Temp);
-		// var spotLights = new NativeArray<SpotLight>(spotLightCount, Allocator.Temp);
+		var spotLights = new NativeArray<SpotLight>(spotLightCount, Allocator.Temp);
 
 		var pointLightIndex = 0;
 		var spotLightIndex = 0;
@@ -200,6 +200,23 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 					pointLightIndex++;
 					break;
 				case LightType.Spot:
+					var originalSpotLight = visibleLight.light;
+					var spotLightColor = visibleLight.finalColor;
+					var spotLightDirection = visibleLight.localToWorldMatrix.GetColumn(2);
+					spotLightDirection.x = -spotLightDirection.x;
+					spotLightDirection.y = -spotLightDirection.y;
+					spotLightDirection.z = -spotLightDirection.z;
+					var spotLightAngle = Mathf.Deg2Rad * .5f * visibleLight.spotAngle;
+					var spotLight = new SpotLight {
+						color = new float3(spotLightColor.r, spotLightColor.g, spotLightColor.b),
+						cone = new Cone(originalSpotLight.transform.position, visibleLight.range, new float3(spotLightDirection.x, spotLightDirection.y, spotLightDirection.z), spotLightAngle),
+						angle = spotLightAngle,
+						matrixVP = originalSpotLight.shadowMatrixOverride * visibleLight.localToWorldMatrix.inverse,
+						smallAngle = Mathf.Deg2Rad * originalSpotLight.innerSpotAngle,
+						nearClip = originalSpotLight.shadowNearPlane
+					};
+
+					spotLights[spotLightIndex] = spotLight;
 					spotLightIndex++;
 					break;
 				case LightType.Directional:
@@ -216,9 +233,10 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_DIRECTION, sunlightDirection);
 		
 		Extensions.Resize(ref _pointLightBuffer, pointLightCount);
-		Extensions.Resize(ref _pointLightBuffer, spotLightCount);
+		Extensions.Resize(ref _spotLightBuffer, spotLightCount);
 		
 		_pointLightBuffer.SetData(pointLights);
+		_spotLightBuffer.SetData(spotLights);
 
 		var lightKernel = @params.tbrComputeShader.FindKernel("CullLight");
 		var cameraTransform = camera.transform;
@@ -231,6 +249,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
 		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
 		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, lightKernel, ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
+		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, lightKernel, ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, lightKernel, ShaderManager.DEPTH_BOUND_TEXTURE, _depthBoundId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, lightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, _culledPointLightId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, lightKernel, ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, _culledSpotLightId);
@@ -241,7 +260,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetGlobalTexture(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, _culledPointLightId);
 		_currentBuffer.SetGlobalTexture(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, _culledSpotLightId);
 		_currentBuffer.SetGlobalBuffer(ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
-		// _currentBuffer.SetGlobalBuffer(ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
+		_currentBuffer.SetGlobalBuffer(ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
 		
 		ExecuteCurrentBuffer(context);
 
@@ -250,7 +269,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// 渲染不透明物体
 		// 【暂时】使用无光照着色器
-		sortingSettings.criteria = SortingCriteria.CommonOpaque;
+		sortingSettings.criteria = SortingCriteria.OptimizeStateChanges;
 		_drawSettings.overrideMaterial = null;
 		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
 		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
@@ -280,6 +299,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// 释放非托管对象
 		pointLights.Dispose();
+		spotLights.Dispose();
 
 #if UNITY_EDITOR
 		if (@params.gizmosOn) context.DrawGizmos(camera, GizmoSubset.PostImageEffects);
@@ -317,7 +337,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 32, FilterMode.Point, RenderTextureFormat.Depth);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.RGHalf, RenderTextureReadWrite.Linear, 1, true);
-		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
+		// _currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
 		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, culledLightDescriptor, FilterMode.Point);
 		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, culledLightDescriptor, FilterMode.Point);
 	}
@@ -344,7 +364,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
-		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
+		// _currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);
 	}

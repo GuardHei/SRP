@@ -1,7 +1,7 @@
 ﻿#ifndef SRP_INCLUDE
 #define SRP_INCLUDE
 
-#define unity_MatrixM unity_ObjectToWorld
+#define UNITY_MATRIX_M unity_ObjectToWorld
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
@@ -11,11 +11,18 @@
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
 
+Texture2D _OpaqueNormalTexture;
+
 Texture3D<uint> _CulledPointLightTexture;
 Texture3D<uint> _CulledSpotLightTexture;
 
 TEXTURE2D(_OpaqueDepthTexture);
 SAMPLER(sampler_OpaqueDepthTexture);
+
+/*
+TEXTURE2D(_OpaqueNormalTexture);
+SAMPLER(sampler_OpaqueNormalTexture);
+*/
 
 CBUFFER_START(UnityPerFrame)
     float4x4 unity_MatrixVP;
@@ -23,8 +30,7 @@ CBUFFER_START(UnityPerFrame)
     float4 _ScreenParams;
     float4 _ProjectionParams;
     float4 _OpaqueDepthTexture_ST;
-    float4 _CulledPointLightTexture_ST;
-    float4 _CulledSpotLightTexture_ST;
+    // float4 _OpaqueNormalTexture_ST;
     float3 _SunlightColor;
     float3 _SunlightDirection;
 CBUFFER_END
@@ -74,7 +80,7 @@ struct ImageVertexOutput {
 ///////////////////////////////
 
 inline float4 GetWorldPosition(float3 pos) {
-    return mul(unity_MatrixM, float4(pos, 1.0));
+    return mul(UNITY_MATRIX_M, float4(pos, 1.0));
 }
 
 inline float4 GetClipPosition(float4 worldPos) {
@@ -82,7 +88,7 @@ inline float4 GetClipPosition(float4 worldPos) {
 }
 
 inline float3 GetWorldNormal(float3 normal) {
-    return mul((float3x3) unity_MatrixM, normal);
+    return mul((float3x3) UNITY_MATRIX_M, normal);
 }
 
 inline float4 ComputeScreenPosition(float4 clipPos) {
@@ -93,7 +99,7 @@ inline float4 ComputeScreenPosition(float4 clipPos) {
 }
 
 inline float3 WorldSpaceViewDirection(float4 localPos) {
-    return _WorldSpaceCameraPos.xyz - mul(unity_MatrixM, localPos).xyz;
+    return _WorldSpaceCameraPos.xyz - mul(UNITY_MATRIX_M, localPos).xyz;
 }
 
 inline float3 WorldSpaceViewDirection(float3 worldPos) {
@@ -137,20 +143,33 @@ inline float3 DefaultDirectionLit(float3 worldNormal) {
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
     PointLight light = _PointLightBuffer[_CulledPointLightTexture[lightIndex]];
     float3 lightDiff = light.sphere.xyz - worldPos;
-    float3 lightDir = normalize(lightDiff);
-    float diffuse = saturate(dot(worldNormal, lightDir));
     float3 lightDiffDot = dot(lightDiff, lightDiff);
+    float3 lightDir = normalize(lightDiff);
     float distanceSqr = max(lightDiffDot, .00001);
     float rangeFade = lightDiffDot * 1.0 / max(light.sphere.w * light.sphere.w, .00001);
     rangeFade = saturate(1.0 - rangeFade * rangeFade);
     rangeFade *= rangeFade;
-    diffuse /= distanceSqr;
-    diffuse *= rangeFade;
+    float diffuse = saturate(dot(worldNormal, lightDir));
+    diffuse *= rangeFade / distanceSqr;
     return diffuse * light.color;
 }
 
-inline float3 DefaultSpotLit() {
-    return float3(0, 0, 0);
+inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
+    SpotLight light = _SpotLightBuffer[_CulledSpotLightTexture[lightIndex]];
+    float3 lightDiff = light.cone.vertex.xyz - worldPos;
+    float3 lightDiffDot = dot(lightDiff, lightDiff);
+    float3 lightDir = normalize(lightDiff);
+    float distanceSqr = max(lightDiffDot, .00001);
+    float rangeFade = lightDiffDot * 1.0 / max(light.cone.height * light.cone.height, .00001);
+    rangeFade = saturate(1.0 - rangeFade * rangeFade);
+    rangeFade *= rangeFade;
+    float cosAngle = cos(light.angle);
+    float angleRangeInv = 1 / max(cos(light.smallAngle) - cosAngle, .00001);
+    float spotFade = dot(light.cone.direction, lightDir);
+    spotFade = saturate((spotFade - cosAngle) * angleRangeInv);
+    float diffuse = saturate(dot(worldNormal, lightDir));
+    diffuse *= rangeFade * spotFade / distanceSqr;
+    return diffuse * light.color;
 }
 
 #endif // SRP_INCLUDE

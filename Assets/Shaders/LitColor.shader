@@ -12,6 +12,10 @@
 
         Pass {
 
+            ZTest LEqual
+            ZWrite On
+			Cull Back
+
             HLSLPROGRAM
 			#pragma target 3.5
 
@@ -20,7 +24,6 @@
             #pragma multi_compile_instancing
 
 			#include "SRPInclude.hlsl"
-            #include "ComputeUtils.hlsl"
 
             struct VertexInput {
                 float4 pos : POSITION;
@@ -38,7 +41,7 @@
             };
 
             UNITY_INSTANCING_BUFFER_START(PerInstance)
-                UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
+                UNITY_DEFINE_INSTANCED_PROP(float3, _Color)
             UNITY_INSTANCING_BUFFER_END(PerInstance)
 
             VertexOutput Vertex(VertexInput input) {
@@ -55,21 +58,25 @@
 
             float4 Fragment(VertexOutput input) : SV_TARGET {
                 UNITY_SETUP_INSTANCE_ID(input);
-                float3 color = UNITY_ACCESS_INSTANCED_PROP(PerInstance, _Color).rgb;
-                float3 normal = normalize(input.normal);
 
-                // uint2 lightTextureIndex = uint2(_ScreenParams.x * input.screenPos.x / 16, _ScreenParams.y * input.screenPos.y / 16);
                 float2 screenUV = input.screenPos.xy / input.screenPos.w;
-                uint2 lightTextureIndex = uint2(_ScreenParams.x * screenUV.x / 16.0, _ScreenParams.y * screenUV.y / 16.0);
-                uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];
+                uint2 screenIndex = uint2(_ScreenParams.x * screenUV.x, _ScreenParams.y * screenUV.y);
+                
+                float3 color = UNITY_ACCESS_INSTANCED_PROP(PerInstance, _Color).rgb;
+                float3 normal = _OpaqueNormalTexture[screenIndex];
+
+                uint2 lightTextureIndex = screenIndex / 16;
+                uint3 lightCountIndex = uint3(lightTextureIndex, 0);
+                uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
+                uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
                 float3 litColor = DefaultDirectionLit(normal);
                 // litColor = float3(0, 0, 0);
 
 /*
-                lightCount = min(lightCount, 1);
+                pointLightCount = min(pointLightCount, 1);
 
                 [loop]
-                for (uint i = 0; i < lightCount; ++i) {
+                for (uint i = 0; i < pointLightCount; ++i) {
                     PointLight light = _PointLightBuffer[_CulledPointLightTexture[uint3(lightTextureIndex, i + 1)]];
                     litColor = light.color;
                 }
@@ -82,7 +89,15 @@
 */
 
                 [loop]
-                for (uint i = 0; i < lightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+                for (uint i = 0; i < pointLightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+
+                [loop]
+                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+
+/*
+                if (spotLightCount > 0) return float4(1, 0, 0, 1);
+                else return float4(0, 1, 0, 1);
+*/
 
                 return float4(litColor * color, 1);
 
