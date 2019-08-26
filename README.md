@@ -4,7 +4,7 @@
 A customized forward+ render pipeline for Unity
 
 ## Planned Features
-1. Supports forward+ render path
+1. Supports forward+ render path (Implemented)
 2. Supports tile-based rendering with transparent objects
 3. Supports realtime directional light\spot light\point light shadows
 4. Supports cascaded shadowmap
@@ -19,3 +19,6 @@ A customized forward+ render pipeline for Unity
 1. DX11+ on Windows
 2. Metal on Mac
 3. OpenGL 4.5+ on Linux
+
+## Docs
+Not ready yet
