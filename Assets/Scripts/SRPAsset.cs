@@ -95,8 +95,11 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// 设置视口、观察矩阵和投影矩阵
 		// context.SetupCameraProperties(camera);
+
+		var viewMatrix = camera.worldToCameraMatrix;
+		
 		_currentBuffer.SetViewport(camera.pixelRect);
-		_currentBuffer.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
+		_currentBuffer.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
 
 		var farClipPlane = camera.farClipPlane;
 		var nearClipPlane = camera.nearClipPlane;
@@ -203,16 +206,12 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 					var originalSpotLight = visibleLight.light;
 					var spotLightColor = visibleLight.finalColor;
 					var spotLightDirection = visibleLight.localToWorldMatrix.GetColumn(2);
-					spotLightDirection.x = -spotLightDirection.x;
-					spotLightDirection.y = -spotLightDirection.y;
-					spotLightDirection.z = -spotLightDirection.z;
-					var spotLightAngle = Mathf.Deg2Rad * .5f * visibleLight.spotAngle;
+					var spotLightAngle = Mathf.Deg2Rad * visibleLight.spotAngle * .5f;
 					var spotLight = new SpotLight {
 						color = new float3(spotLightColor.r, spotLightColor.g, spotLightColor.b),
-						cone = new Cone(originalSpotLight.transform.position, visibleLight.range, new float3(spotLightDirection.x, spotLightDirection.y, spotLightDirection.z), spotLightAngle),
-						angle = spotLightAngle,
+						cone = new Cone(visibleLight.localToWorldMatrix.GetPositionFromLocalTransform(), spotLightAngle, visibleLight.range, new float3(spotLightDirection.x, spotLightDirection.y, spotLightDirection.z)),
 						matrixVP = originalSpotLight.shadowMatrixOverride * visibleLight.localToWorldMatrix.inverse,
-						smallAngle = Mathf.Deg2Rad * originalSpotLight.innerSpotAngle,
+						innerAngle = Mathf.Deg2Rad * originalSpotLight.innerSpotAngle * .5f,
 						nearClip = originalSpotLight.shadowNearPlane
 					};
 
@@ -220,10 +219,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 					spotLightIndex++;
 					break;
 				case LightType.Directional:
-					sunlightDirection = visibleLight.localToWorldMatrix.GetColumn(2);
-					sunlightDirection.x = -sunlightDirection.x;
-					sunlightDirection.y = -sunlightDirection.y;
-					sunlightDirection.z = -sunlightDirection.z;
+					sunlightDirection = visibleLight.localToWorldMatrix.GetDirectionFromLocalTransform();
 					sunlightColor = visibleLight.finalColor;
 					break;
 			}
@@ -378,12 +374,14 @@ public struct Point {
 [Serializable]
 public struct Cone {
 	public float3 vertex;
+	public float angle;
 	public float height;
 	public float3 direction;
 	public float radius;
 
-	public Cone(float3 vertex, float height, float3 direction, float angle) {
+	public Cone(float3 vertex, float angle, float height, float3 direction) {
 		this.vertex = vertex;
+		this.angle = angle;
 		this.height = height;
 		this.direction = direction;
 		radius = Mathf.Tan(angle) * height;
@@ -400,8 +398,7 @@ public struct PointLight {
 public struct SpotLight {
 	public float3 color;
 	public Cone cone;
-	public float angle;
 	public float4x4 matrixVP;
-	public float smallAngle;
+	public float innerAngle;
 	public float nearClip;
 }

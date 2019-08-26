@@ -163,9 +163,9 @@ inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightInd
     float rangeFade = lightDiffDot * 1.0 / max(light.cone.height * light.cone.height, .00001);
     rangeFade = saturate(1.0 - rangeFade * rangeFade);
     rangeFade *= rangeFade;
-    float cosAngle = cos(light.angle);
+    float cosAngle = cos(light.cone.angle);
     float angleRangeInv = 1 / max(cos(light.smallAngle) - cosAngle, .00001);
-    float spotFade = dot(light.cone.direction, lightDir);
+    float spotFade = dot(-light.cone.direction, lightDir);
     spotFade = saturate((spotFade - cosAngle) * angleRangeInv);
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade * spotFade / distanceSqr;

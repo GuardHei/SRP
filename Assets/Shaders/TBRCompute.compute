@@ -74,6 +74,7 @@ void CullLight(uint2 id : SV_DISPATCHTHREADID) {
     planes[5] = GetPlane(_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.y);
 
     uint lightCount = 0;
+    uint3 lightCountIndex = uint3(id, 0);
 
     for (uint i = 0; i < _PointLightCount && lightCount < MAXLIGHTPERTILE; ++i) {
         PointLight light = _PointLightBuffer[i];
@@ -83,15 +84,21 @@ void CullLight(uint2 id : SV_DISPATCHTHREADID) {
         }
     }
 
-    _CulledPointLightTexture[uint3(id, 0)] = lightCount;
+    _CulledPointLightTexture[lightCountIndex] = lightCount;
 
     lightCount = 0;
 
     for (i = 0; i < _SpotLightCount && lightCount < MAXLIGHTPERTILE; ++i) {
         SpotLight light = _SpotLightBuffer[i];
+        // _CulledSpotLightTexture[uint3(id, lightCount + 1)] = i;
+        // lightCount++;
+        
         if (ConeIntersect(light.cone, planes) > .5) {
             _CulledSpotLightTexture[uint3(id, lightCount + 1)] = i;
             lightCount++;
         }
+        
     }
+
+    _CulledSpotLightTexture[lightCountIndex] = lightCount;
 }

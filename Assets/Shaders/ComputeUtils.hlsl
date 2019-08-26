@@ -3,6 +3,7 @@
 
 struct Cone {
     float3 vertex;
+    float angle;
     float height;
     float3 direction;
     float radius;
@@ -16,7 +17,6 @@ struct PointLight {
 struct SpotLight {
     float3 color;
     Cone cone;
-    float angle;
     float4x4 matrixVP;
     float smallAngle;
     float nearClip;
@@ -108,6 +108,19 @@ float ConeIntersect(Cone cone, float4 planes[6]) {
 
 inline float ConeIntersect(Cone cone, float4 plane) {
     return ConeInsidePlane(cone, plane);
+}
+
+inline float ConeSphereIntersect(Cone cone, float4 sphere) {
+    float3 diff = cone.vertex - sphere.xyz;
+    float diffDot = dot(diff, diff);
+    float lenComp = dot(diff, cone.direction);
+    float dist = cos(cone.angle) * sqrt(diffDot - lenComp * lenComp) - lenComp * sin(cone.angle);
+
+    bool angleCull = dist > sphere.w;
+    bool frontCull = lenComp > sphere.w + cone.height;
+    bool backCull = lenComp < -sphere.w;
+    
+    return !(angleCull || frontCull || backCull);
 }
 
 #endif // COMPUTE_UTILS
