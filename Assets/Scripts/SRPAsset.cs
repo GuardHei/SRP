@@ -45,6 +45,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	}
 
 	public SRPipelineParams @params;
+	public Light sunlight;
 
 	private RenderTargetIdentifier _transparentMinDepthId;
 	private RenderTargetIdentifier _transparentMaxDepthId;
@@ -61,7 +62,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	private readonly CommandBuffer _currentBuffer = new CommandBuffer { name = "Render Camera" };
 	
 	private DrawingSettings _drawSettings;
-	
+
 	public SRPipeline() {
 		GraphicsSettings.lightsUseLinearIntensity = true;
 		current = this;
@@ -69,7 +70,13 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	}
 
 	private void Init() {
-		foreach (var camera in Camera.allCameras) camera.forceIntoRenderTexture = true;
+		// foreach (var camera in Camera.allCameras) camera.forceIntoRenderTexture = true;
+
+		foreach (var light in GameObject.FindObjectsOfType<Light>()) {
+			if (light.type != LightType.Directional) continue;
+			sunlight = light;
+			break;
+		}
 		
 		_transparentMinDepthId = new RenderTargetIdentifier(ShaderManager.TRANSPARENT_MIN_DEPTH_TEXTURE);
 		_transparentMaxDepthId = new RenderTargetIdentifier(ShaderManager.TRANSPARENT_MAX_DEPTH_TEXTURE);
@@ -120,7 +127,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		// 场景剔除
 		if (!camera.TryGetCullingParameters(out var cullingParameters)) return;
 		var cull = context.Cull(ref cullingParameters);
-		
+
 		// 渲染深度图
 		_drawSettings.enableDynamicBatching = @params.enableDynamicBatching;
 		_drawSettings.enableInstancing = @params.enableInstancing;
@@ -161,8 +168,33 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthBoundKernel, threadGroupsX, threadGroupsY, 1);
 
 		ExecuteCurrentBuffer(context);
+
+		var depthFrustumKernel = @params.tbrComputeShader.FindKernel("GenerateDepthFrustum");
+		var cameraTransform = camera.transform;
+		var cameraForward = cameraTransform.forward;
+		var cameraPosition = cameraTransform.position;
+		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_FORWARD, cameraForward.x, cameraForward.y, cameraForward.z);
+		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_POSITION, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+		_currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
+		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_BOUND_TEXTURE, _depthBoundId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, _depthFrustumId);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthFrustumKernel, threadGroupsX, threadGroupsY, 1);
+		
+		ExecuteCurrentBuffer(context);
 		
 		var allLights = cull.visibleLights;
+		
+		var sunlightColor = new Vector4(0, 0, 0);
+		var sunlightDirection = new Vector4(0, 0, 0);
+
+		if (sunlight) {
+			sunlightDirection = sunlight.transform.localToWorldMatrix.GetDirectionFromLocalTransform();
+			sunlightColor = sunlight.color * sunlight.intensity;
+		}
+		
+		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_COLOR, sunlightColor);
+		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_DIRECTION, sunlightDirection);
 
 		var pointLightCount = 0;
 		var spotLightCount = 0;
@@ -184,9 +216,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		var pointLightIndex = 0;
 		var spotLightIndex = 0;
-		
-		var sunlightColor = new Vector4(0, 0, 0);
-		var sunlightDirection = new Vector4(0, 0, 0);
 
 		for (int i = 0, l = allLights.Length; i < l; i++) {
 			var visibleLight = allLights[i];
@@ -205,7 +234,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 				case LightType.Spot:
 					var originalSpotLight = visibleLight.light;
 					var spotLightColor = visibleLight.finalColor;
-					var spotLightDirection = visibleLight.localToWorldMatrix.GetColumn(2);
+					var spotLightDirection = visibleLight.localToWorldMatrix.GetDirectionFromLocalTransform();
 					var spotLightAngle = Mathf.Deg2Rad * visibleLight.spotAngle * .5f;
 					var spotLight = new SpotLight {
 						color = new float3(spotLightColor.r, spotLightColor.g, spotLightColor.b),
@@ -218,15 +247,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 					spotLights[spotLightIndex] = spotLight;
 					spotLightIndex++;
 					break;
-				case LightType.Directional:
-					sunlightDirection = visibleLight.localToWorldMatrix.GetDirectionFromLocalTransform();
-					sunlightColor = visibleLight.finalColor;
-					break;
 			}
 		}
-		
-		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_COLOR, sunlightColor);
-		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_DIRECTION, sunlightDirection);
 		
 		Extensions.Resize(ref _pointLightBuffer, pointLightCount);
 		Extensions.Resize(ref _spotLightBuffer, spotLightCount);
@@ -234,22 +256,19 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_pointLightBuffer.SetData(pointLights);
 		_spotLightBuffer.SetData(spotLights);
 
-		var lightKernel = @params.tbrComputeShader.FindKernel("CullLight");
-		var cameraTransform = camera.transform;
-		var cameraForward = cameraTransform.forward;
-		var cameraPosition = cameraTransform.position;
+		var pointLightKernel = @params.tbrComputeShader.FindKernel("CullPointLight");
 		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.POINT_LIGHT_COUNT, pointLightCount);
-		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.SPOT_LIGHT_COUNT, spotLightCount);
-		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_FORWARD, cameraForward.x, cameraForward.y, cameraForward.z);
-		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_POSITION, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-		_currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
-		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
-		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, lightKernel, ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
-		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, lightKernel, ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, lightKernel, ShaderManager.DEPTH_BOUND_TEXTURE, _depthBoundId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, lightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, _culledPointLightId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, lightKernel, ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, _culledSpotLightId);
-		_currentBuffer.DispatchCompute(@params.tbrComputeShader, lightKernel, threadGroupsX, threadGroupsY, 1);
+		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, _depthFrustumId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, _culledPointLightId);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, pointLightKernel, threadGroupsX, threadGroupsY, 1);
+		
+		var spotLightKernel = @params.tbrComputeShader.FindKernel("CullSpotLight");
+		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.SPOT_LIGHT_COUNT, pointLightCount);
+		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, _depthFrustumId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, _culledSpotLightId);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, spotLightKernel, threadGroupsX, threadGroupsY, 1);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -320,7 +339,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var depthFrustumDescriptor = new RenderTextureDescriptor(tileWidth, tileHeight, GraphicsFormat.R16G16B16A16_SFloat, 0) {
 			enableRandomWrite = true,
 			dimension = TextureDimension.Tex3D,
-			volumeDepth = 65
+			volumeDepth = 6
 		};
 
 		var culledLightDescriptor = new RenderTextureDescriptor(tileWidth, tileHeight, GraphicsFormat.R16_UInt, 0) {
@@ -333,7 +352,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 32, FilterMode.Point, RenderTextureFormat.Depth);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.RGHalf, RenderTextureReadWrite.Linear, 1, true);
-		// _currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
+		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
 		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, culledLightDescriptor, FilterMode.Point);
 		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, culledLightDescriptor, FilterMode.Point);
 	}
@@ -360,7 +379,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
-		// _currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);
 	}

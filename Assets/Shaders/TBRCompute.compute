@@ -1,5 +1,7 @@
 ﻿#pragma kernel GenerateDepthBound
-#pragma kernel CullLight
+#pragma kernel GenerateDepthFrustum
+#pragma kernel CullPointLight
+#pragma kernel CullSpotLight
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
@@ -8,6 +10,7 @@
 #define MAXLIGHTPERTILE 64
 
 RWTexture2D<float2> _DepthBoundTexture;
+RWTexture3D<float4> _DepthFrustumTexture;
 RWTexture3D<uint> _CulledPointLightTexture;
 RWTexture3D<uint> _CulledSpotLightTexture;
 Texture2D<float> _OpaqueDepthTexture;
@@ -43,7 +46,7 @@ void GenerateDepthBound(uint2 id : SV_DISPATCHTHREADID) {
 }
 
 [numthreads(16, 9, 1)]
-void CullLight(uint2 id : SV_DISPATCHTHREADID) {
+void GenerateDepthFrustum(uint2 id : SV_DISPATCHTHREADID) {
     const float nearZ = 1;
     float2 minMax;
     float4 cornerUV;
@@ -64,19 +67,29 @@ void CullLight(uint2 id : SV_DISPATCHTHREADID) {
 
     float2 eyeDepthBound = float2(LinearEyeDepth(minMax.x, _ZBufferParams), LinearEyeDepth(minMax.y, _ZBufferParams));
 
+    _DepthFrustumTexture[uint3(id, 0)] = GetPlane(mul(_InverseVP, float4(flagA, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(flagB, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.w, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 1)] = GetPlane(mul(_InverseVP, float4(flagB, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(flagA, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.y, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 2)] = GetPlane(mul(_InverseVP, float4(cornerUV.x, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, 0, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 3)] = GetPlane(mul(_InverseVP, float4(cornerUV.z, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, 0, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 4)] = GetPlane(-_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.x);
+    _DepthFrustumTexture[uint3(id, 5)] = GetPlane(_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.y);
+}
+
+[numthreads(16, 9, 1)]
+void CullPointLight(uint2 id : SV_DISPATCHTHREADID) {
     float4 planes[6];
 
-    planes[0] = GetPlane(mul(_InverseVP, float4(flagA, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(flagB, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.w, .5, 1)));
-    planes[1] = GetPlane(mul(_InverseVP, float4(flagB, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(flagA, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.y, .5, 1)));
-    planes[2] = GetPlane(mul(_InverseVP, float4(cornerUV.x, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, 0, .5, 1)));
-    planes[3] = GetPlane(mul(_InverseVP, float4(cornerUV.z, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, 0, .5, 1)));
-    planes[4] = GetPlane(-_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.x);
-    planes[5] = GetPlane(_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.y);
+    planes[0] = _DepthFrustumTexture[uint3(id, 0)];
+    planes[1] = _DepthFrustumTexture[uint3(id, 1)];
+    planes[2] = _DepthFrustumTexture[uint3(id, 2)];
+    planes[3] = _DepthFrustumTexture[uint3(id, 3)];
+    planes[4] = _DepthFrustumTexture[uint3(id, 4)];
+    planes[5] = _DepthFrustumTexture[uint3(id, 5)];
 
     uint lightCount = 0;
     uint3 lightCountIndex = uint3(id, 0);
 
-    for (uint i = 0; i < _PointLightCount && lightCount < MAXLIGHTPERTILE; ++i) {
+    for (uint i = 0; lightCount < MAXLIGHTPERTILE && i < _PointLightCount; ++i) {
         PointLight light = _PointLightBuffer[i];
         if (SphereIntersect(light.sphere, planes) > .5) {
             _CulledPointLightTexture[uint3(id, lightCount + 1)] = i;
@@ -85,14 +98,24 @@ void CullLight(uint2 id : SV_DISPATCHTHREADID) {
     }
 
     _CulledPointLightTexture[lightCountIndex] = lightCount;
+}
 
-    lightCount = 0;
+[numthreads(16, 9, 1)]
+void CullSpotLight(uint2 id : SV_DISPATCHTHREADID) {
+    float4 planes[6];
 
-    for (i = 0; i < _SpotLightCount && lightCount < MAXLIGHTPERTILE; ++i) {
+    planes[0] = _DepthFrustumTexture[uint3(id, 0)];
+    planes[1] = _DepthFrustumTexture[uint3(id, 1)];
+    planes[2] = _DepthFrustumTexture[uint3(id, 2)];
+    planes[3] = _DepthFrustumTexture[uint3(id, 3)];
+    planes[4] = _DepthFrustumTexture[uint3(id, 4)];
+    planes[5] = _DepthFrustumTexture[uint3(id, 5)];
+
+    uint lightCount = 0;
+    uint3 lightCountIndex = uint3(id, 0);
+
+    for (uint i = 0; lightCount < MAXLIGHTPERTILE && i < _SpotLightCount; ++i) {
         SpotLight light = _SpotLightBuffer[i];
-        // _CulledSpotLightTexture[uint3(id, lightCount + 1)] = i;
-        // lightCount++;
-        
         if (ConeIntersect(light.cone, planes) > .5) {
             _CulledSpotLightTexture[uint3(id, lightCount + 1)] = i;
             lightCount++;

@@ -39,7 +39,7 @@
 
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * input.uv.x / 16.0, _ScreenParams.y * input.uv.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];
-                lightCount = _CulledSpotLightTexture[uint3(lightTextureIndex, 0)];
+                lightCount += _CulledSpotLightTexture[uint3(lightTextureIndex, 0)];
                 // lightCount = min(lightCount, 1);
 
                 float4 color = float4(0, 0, 0, 1);

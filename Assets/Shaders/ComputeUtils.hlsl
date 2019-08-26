@@ -57,8 +57,9 @@ inline float SphereInsidePlane(float4 sphere, float4 plane) {
 }
 
 inline float ConeInsidePlane(Cone cone, float4 plane) {
-    float3 m = cross(cross(plane.xyz, cone.direction), cone.direction);
-    float3 q = cone.vertex + cone.direction * cone.height + normalize(m) * cone.radius;
+    float3 direction = -cone.direction;
+    float3 m = cross(cross(plane.xyz, direction), direction);
+    float3 q = cone.vertex + direction * cone.height + normalize(m) * cone.radius;
     return VertexInsidePlane(cone.vertex, plane) + VertexInsidePlane(q, plane);
 }
 
