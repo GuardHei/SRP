@@ -6,11 +6,11 @@
     
     SubShader {
 
-        Tags { 
-            "RenderType"="Opaque"
-        }
-
         Pass {
+
+            Tags { 
+                "RenderType"="Opaque"
+            }
 
             ZTest LEqual
             ZWrite On
@@ -69,7 +69,7 @@
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
                 uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
                 uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
-                float3 litColor = DefaultDirectionLit(normal);
+                float3 litColor = DefaultDirectionLit(normal)/* * DefaultDirectionShadow(input.worldPos)*/;
                 // litColor = float3(0, 0, 0);
 
 /*
@@ -104,6 +104,45 @@
             }
 
 		    ENDHLSL
+        }
+
+        Pass {
+
+            Tags { 
+                "LightMode"="ShadowCaster"
+            }
+
+            HLSLPROGRAM
+			
+			#pragma target 3.5
+			
+			#pragma multi_compile_instancing
+			#pragma instancing_options assumeuniformscaling
+			
+			#pragma vertex Vertex
+			#pragma fragment Fragment
+
+			#include "SRPInclude.hlsl"
+
+            BasicVertexOutput Vertex(BasicVertexInput input) {
+                UNITY_SETUP_INSTANCE_ID(input);
+                BasicVertexOutput output;
+                output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
+#if UNITY_REVERSED_Z
+		        output.clipPos.z -= _SunlightShadowBias;
+		        output.clipPos.z = min(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
+#else
+		        output.clipPos.z += _SunlightShadowBias;
+		        output.clipPos.z = max(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
+#endif
+                return output;
+            }
+
+            float4 Fragment(BasicVertexOutput input) : SV_TARGET {
+                return 0;
+            }
+
+			ENDHLSL
         }
     }
 }

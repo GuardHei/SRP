@@ -13,11 +13,20 @@ StructuredBuffer<SpotLight> _SpotLightBuffer;
 
 Texture2D _OpaqueNormalTexture;
 
+// Texture2DArray<float> _SunlightShadowmap;
+// SamplerState sampler_SunlightShadowmap;
+
 Texture3D<uint> _CulledPointLightTexture;
 Texture3D<uint> _CulledSpotLightTexture;
 
 TEXTURE2D(_OpaqueDepthTexture);
 SAMPLER(sampler_OpaqueDepthTexture);
+
+TEXTURE2D(_SunlightShadowmap);
+SAMPLER_CMP(sampler_SunlightShadowmap);
+// SAMPLER(sampler_SunlightShadowmap)
+SamplerState linear_clamp_sampler;
+
 
 /*
 TEXTURE2D(_OpaqueNormalTexture);
@@ -26,13 +35,17 @@ SAMPLER(sampler_OpaqueNormalTexture);
 
 CBUFFER_START(UnityPerFrame)
     float4x4 unity_MatrixVP;
+    float4x4 sunlight_MatrixVP;
     float4 _WorldSpaceCameraPos;
     float4 _ScreenParams;
     float4 _ProjectionParams;
     float4 _OpaqueDepthTexture_ST;
+    float4 _SunlightShadowmap_ST;
     // float4 _OpaqueNormalTexture_ST;
     float3 _SunlightColor;
     float3 _SunlightDirection;
+    float _SunlightShadowBias;
+    float _SunlightShadowStrength;
 CBUFFER_END
 
 CBUFFER_START(UnityPerDraw)
@@ -49,6 +62,7 @@ CBUFFER_END
 
 struct BasicVertexInput {
     float4 pos : POSITION;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
 struct SimpleVertexInput {
@@ -138,6 +152,17 @@ float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
 inline float3 DefaultDirectionLit(float3 worldNormal) {
     float diffuse = saturate(dot(worldNormal, _SunlightDirection));
     return diffuse * _SunlightColor;
+}
+
+inline float DefaultDirectionShadow(float3 worldPos) {
+    float4 shadowPos = mul(sunlight_MatrixVP, float4(worldPos, 1.0));
+    shadowPos.xyz /= shadowPos.w;
+    return lerp(1, SAMPLE_TEXTURE2D_SHADOW(_SunlightShadowmap, sampler_SunlightShadowmap, shadowPos.xyz), _SunlightShadowStrength);
+#if UNITY_REVERSED_Z
+
+#else
+
+#endif
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {

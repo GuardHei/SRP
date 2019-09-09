@@ -16,6 +16,10 @@ public class ShaderManager {
 	public static readonly int Z_BUFFER_PARAMS = Shader.PropertyToID("_ZBufferParams");
 	public static readonly int SUNLIGHT_COLOR = Shader.PropertyToID("_SunlightColor");
 	public static readonly int SUNLIGHT_DIRECTION = Shader.PropertyToID("_SunlightDirection");
+	public static readonly int SUNLIGHT_SHADOW_BIAS = Shader.PropertyToID("_SunlightShadowBias");
+	public static readonly int SUNLIGHT_SHADOW_STRENGTH = Shader.PropertyToID("_SunlightShadowStrength");
+	public static readonly int SUNLIGHT_SHADOWMAP = Shader.PropertyToID("_SunlightShadowmap");
+	public static readonly int SUNLIGHT_MATRIX_VP = Shader.PropertyToID("sunlight_MatrixVP");
 	public static readonly int INVERSE_VP = Shader.PropertyToID("_InverseVP");
 	public static readonly int POINT_LIGHT_COUNT = Shader.PropertyToID("_PointLightCount");
 	public static readonly int SPOT_LIGHT_COUNT = Shader.PropertyToID("_SpotLightCount");

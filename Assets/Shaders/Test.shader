@@ -24,11 +24,14 @@
             ImageVertexOutput Vertex(ImageVertexInput input) {
                 ImageVertexOutput output;
                 output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-                output.uv = TRANSFORM_TEX(input.uv, _OpaqueDepthTexture);
+                output.uv = TRANSFORM_TEX(input.uv, _SunlightShadowmap);
                 return output;
             }
 
             float4 Fragment(ImageVertexOutput input) : SV_TARGET {
+
+                float c = _SunlightShadowmap.Sample(linear_clamp_sampler, input.uv).r;
+                return c;
 /*
                 float4 c = SAMPLE_TEXTURE2D(_OpaqueDepthTexture, sampler_OpaqueDepthTexture, input.uv);
                 return c;
@@ -36,7 +39,6 @@
                 float a = 1 - c.r;
                 return float4(a, a , a, 1);
 */
-
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * input.uv.x / 16.0, _ScreenParams.y * input.uv.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];
                 lightCount += _CulledSpotLightTexture[uint3(lightTextureIndex, 0)];
