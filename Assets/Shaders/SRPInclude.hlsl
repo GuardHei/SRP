@@ -24,8 +24,6 @@ SAMPLER(sampler_OpaqueDepthTexture);
 
 TEXTURE2D(_SunlightShadowmap);
 SAMPLER_CMP(sampler_SunlightShadowmap);
-// SAMPLER(sampler_SunlightShadowmap)
-SamplerState linear_clamp_sampler;
 
 
 /*
@@ -158,11 +156,6 @@ inline float DefaultDirectionShadow(float3 worldPos) {
     float4 shadowPos = mul(sunlight_MatrixVP, float4(worldPos, 1.0));
     shadowPos.xyz /= shadowPos.w;
     return lerp(1, SAMPLE_TEXTURE2D_SHADOW(_SunlightShadowmap, sampler_SunlightShadowmap, shadowPos.xyz), _SunlightShadowStrength);
-#if UNITY_REVERSED_Z
-
-#else
-
-#endif
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {

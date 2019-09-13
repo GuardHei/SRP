@@ -69,7 +69,8 @@
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
                 uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
                 uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
-                float3 litColor = DefaultDirectionLit(normal)/* * DefaultDirectionShadow(input.worldPos)*/;
+                // return DefaultDirectionShadow(input.worldPos);
+                float3 litColor = DefaultDirectionLit(normal) * DefaultDirectionShadow(input.worldPos);
                 // litColor = float3(0, 0, 0);
 
 /*

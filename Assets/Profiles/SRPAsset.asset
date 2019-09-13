@@ -21,7 +21,7 @@ MonoBehaviour:
     tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
     sunlightParams:
       shadowOn: 1
-      shadowResolution: 1024
+      shadowResolution: 4096
       shadowCascades: 1
       shadowCascadeSplits:
       - 0.067

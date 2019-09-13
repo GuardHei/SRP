@@ -117,6 +117,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		shadowSettings.splitData = splitData;
 		
+		_currentBuffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+		
 		if (SystemInfo.usesReversedZBuffer) {
 			projectionMatrix.m20 = -projectionMatrix.m20;
 			projectionMatrix.m21 = -projectionMatrix.m21;
@@ -128,12 +130,11 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		scaleOffset.m00 = scaleOffset.m11 = scaleOffset.m22 = 0.5f;
 		scaleOffset.m03 = scaleOffset.m13 = scaleOffset.m23 = 0.5f;
 		
-		var unityMatrixVp = scaleOffset * projectionMatrix * viewMatrix;
+		var unityMatrixVp = scaleOffset * (projectionMatrix * viewMatrix);
 		
 		// var viewport = new Rect(0, 0, @params.sunlightParams.shadowResolution, @params.sunlightParams.shadowResolution);
 		// _currentBuffer.SetViewport(viewport);
 		// _currentBuffer.EnableScissorRect(new Rect(viewport.x + 4f, viewport.y + 4f, viewport.width - 8f, viewport.height - 8f));
-		_currentBuffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
 		_currentBuffer.SetGlobalMatrix(ShaderManager.SUNLIGHT_MATRIX_VP, unityMatrixVp);
 		
 		ExecuteCurrentBuffer(context);
@@ -185,14 +186,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// 场景剔除
 		if (!camera.TryGetCullingParameters(out var cullingParameters)) return;
-		cullingParameters.shadowDistance = Mathf.Min(@params.sunlightParams.shadowDistance, camera.farClipPlane);
+		cullingParameters.shadowDistance = Mathf.Min(@params.sunlightParams.shadowDistance, farClipPlane);
 		var cull = context.Cull(ref cullingParameters);
 
 		// 渲染深度图
 		_drawSettings.enableDynamicBatching = @params.enableDynamicBatching;
 		_drawSettings.enableInstancing = @params.enableInstancing;
 		
-		var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.CommonOpaque };
+		var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.OptimizeStateChanges };
 
 		var filterSettings = FilteringSettings.defaultValue;
 		filterSettings.layerMask = camera.cullingMask;
@@ -363,7 +364,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		context.SetupCameraProperties(camera);
 		
 		// 渲染不透明物体
-		// 【暂时】使用无光照着色器
 		sortingSettings.criteria = SortingCriteria.OptimizeStateChanges;
 		_drawSettings.overrideMaterial = null;
 		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
