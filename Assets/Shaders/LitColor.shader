@@ -25,12 +25,6 @@
 
 			#include "SRPInclude.hlsl"
 
-            struct VertexInput {
-                float4 pos : POSITION;
-                float3 normal : NORMAL;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
             struct VertexOutput {
                 float4 clipPos : SV_POSITION;
                 float3 normal : TEXCOORD0;
@@ -44,7 +38,7 @@
                 UNITY_DEFINE_INSTANCED_PROP(float3, _Color)
             UNITY_INSTANCING_BUFFER_END(PerInstance)
 
-            VertexOutput Vertex(VertexInput input) {
+            VertexOutput Vertex(SimpleVertexInput input) {
                 VertexOutput output;
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
@@ -125,15 +119,17 @@
 
 			#include "SRPInclude.hlsl"
 
-            BasicVertexOutput Vertex(BasicVertexInput input) {
+            BasicVertexOutput Vertex(SimpleVertexInput input) {
                 UNITY_SETUP_INSTANCE_ID(input);
                 BasicVertexOutput output;
                 output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
+                float shadowBias = SlopeScaleShadowBias(GetWorldNormal(input.normal), _SunlightShadowBias, .01);
+                // shadowBias = _SunlightShadowBias;
 #if UNITY_REVERSED_Z
-		        output.clipPos.z -= _SunlightShadowBias;
+		        output.clipPos.z -= shadowBias;
 		        output.clipPos.z = min(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
 #else
-		        output.clipPos.z += _SunlightShadowBias;
+		        output.clipPos.z += shadowBias;
 		        output.clipPos.z = max(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
 #endif
                 return output;

@@ -24,7 +24,7 @@ SAMPLER(sampler_OpaqueDepthTexture);
 
 TEXTURE2D(_SunlightShadowmap);
 SAMPLER_CMP(sampler_SunlightShadowmap);
-
+SamplerState linear_clamp_sampler;
 
 /*
 TEXTURE2D(_OpaqueNormalTexture);
@@ -66,6 +66,7 @@ struct BasicVertexInput {
 struct SimpleVertexInput {
     float4 pos : POSITION;
     float3 normal : NORMAL;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
 struct ImageVertexInput {
@@ -146,6 +147,14 @@ float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
 ////////////////////////
 // Lighting Functions //
 ////////////////////////
+
+inline float SlopeScaleShadowBias(float3 worldNormal, float constantBias, float maxBias) {
+    float cos = saturate(dot(worldNormal, _SunlightDirection));
+    float sin = sqrt(1 - cos * cos);
+    float tan = sin / cos;
+    float bias = constantBias + clamp(tan, 0, maxBias);
+    return bias;
+}
 
 inline float3 DefaultDirectionLit(float3 worldNormal) {
     float diffuse = saturate(dot(worldNormal, _SunlightDirection));
