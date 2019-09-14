@@ -24,6 +24,19 @@ A customized forward+ render pipeline for Unity
 Not ready yet
 
 ## Previews
- ![Demo.png](https://i.loli.net/2019/08/26/cvGJF3QbeIA2Rm1.png)
- 
- Running at 400+fps with a resolution of 2560 x 1440 on a 2017 Macbook Pro with Radeon Pro 560.
+![Still Under Development.png](https://i.loli.net/2019/09/14/OvhElRIoYqS32U7.png)
+
+Parameters
++ 2k resolution
++ 8k shadowmap resolution
++ 59 point lights
++ 20 spot lights
++ 1 directional light
++ 800+ fps
+
+Configs
++ MacBook Pro (15-inch, 2017)
++ macOS Mojave 10.14.4
++ 3.1 GHz Intel Core i7
++ 16 GB 2133 MHz LPDDR3
++ Radeon Pro 560 4 GBB
