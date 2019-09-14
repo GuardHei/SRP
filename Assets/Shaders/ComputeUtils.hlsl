@@ -26,6 +26,29 @@ CBUFFER_START(UnityPerFrame)
     float4 _ZBufferParams;
 CBUFFER_END
 
+inline float SinOf(float cos) {
+    return sqrt(1 - cos * cos);
+}
+
+inline float TanOf(float sin, float cos) {
+    return sin / cos;
+}
+
+inline float CosBetween(float3 directionA, float3 directionB) {
+    return saturate(dot(directionA, directionB));
+}
+
+inline float SinBetween(float3 directionA, float3 directionB) {
+    float cos = CosBetween(directionA, directionB);
+    return sqrt(1 - cos * cos);
+}
+
+inline float TanBetween(float3 directionA, float3 directionB) {
+    float cos = CosBetween(directionA, directionB);
+    float sin = SinOf(cos);
+    return TanOf(sin, cos);
+}
+
 inline float4 GetPlane(float3 normal, float3 vertex) {
     return float4(normal, -dot(normal, vertex));
 }

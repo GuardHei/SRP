@@ -119,41 +119,16 @@ inline float3 WorldSpaceViewDirection(float3 worldPos) {
     return _WorldSpaceCameraPos.xyz - worldPos;
 }
 
-//////////////////////////////////////
-// Built-in Vertex/Fragment Shaders //
-//////////////////////////////////////
-
-BasicVertexOutput UnlitVertex(BasicVertexInput input) {
-    BasicVertexOutput output;
-	output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-	return output;
-}
-
-ImageVertexOutput ImageVertex(ImageVertexInput input) {
-    ImageVertexOutput output;
-    output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-    output.uv = TRANSFORM_TEX(input.uv, _MainTex);
-    return output;
-}
-
-float4 UnlitFragment(BasicVertexOutput input) : SV_TARGET {
-    return 1;
-}
-
-float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
-    return 0;
-}
-
 ////////////////////////
 // Lighting Functions //
 ////////////////////////
 
-inline float SlopeScaleShadowBias(float3 worldNormal, float constantBias, float maxBias) {
-    float cos = saturate(dot(worldNormal, _SunlightDirection));
-    float sin = sqrt(1 - cos * cos);
-    float tan = sin / cos;
-    float bias = constantBias + clamp(tan, 0, maxBias);
-    return bias;
+inline float SlopeScaleShadowBias(float3 worldNormal, float biasStrength, float maxBias) {
+    return clamp(biasStrength * TanBetween(worldNormal, _SunlightDirection), 0, maxBias);
+}
+
+inline float AlternateSlopeScaleShadowBias(float3 worldNormal, float constantBias, float maxBias) {
+    return constantBias + clamp(TanBetween(worldNormal, _SunlightDirection), 0, maxBias);
 }
 
 inline float3 DefaultDirectionLit(float3 worldNormal) {
@@ -197,6 +172,51 @@ inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightInd
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade * spotFade / distanceSqr;
     return diffuse * light.color;
+}
+
+//////////////////////////////////////
+// Built-in Vertex/Fragment Shaders //
+//////////////////////////////////////
+
+BasicVertexOutput UnlitVertex(BasicVertexInput input) {
+    BasicVertexOutput output;
+	output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
+	return output;
+}
+
+ImageVertexOutput ImageVertex(ImageVertexInput input) {
+    ImageVertexOutput output;
+    output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
+    output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+    return output;
+}
+
+float4 UnlitFragment(BasicVertexOutput input) : SV_TARGET {
+    return 1;
+}
+
+float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
+    return 0;
+}
+
+BasicVertexOutput ShadowCasterVertex(SimpleVertexInput input) {
+    UNITY_SETUP_INSTANCE_ID(input);
+    BasicVertexOutput output;
+    output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
+    float shadowBias = SlopeScaleShadowBias(GetWorldNormal(input.normal), _SunlightShadowBias, .01);
+    // shadowBias = _SunlightShadowBias;
+#if UNITY_REVERSED_Z
+	output.clipPos.z -= shadowBias;
+	output.clipPos.z = min(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
+#else
+	output.clipPos.z += shadowBias;
+	output.clipPos.z = max(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
+#endif
+    return output;
+}
+
+float4 ShadowCasterFragment(BasicVertexOutput input) : SV_TARGET {
+    return 0;
 }
 
 #endif // SRP_INCLUDE

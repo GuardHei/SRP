@@ -113,31 +113,11 @@
 			
 			#pragma multi_compile_instancing
 			#pragma instancing_options assumeuniformscaling
+
+            #include "SRPInclude.hlsl"
 			
-			#pragma vertex Vertex
-			#pragma fragment Fragment
-
-			#include "SRPInclude.hlsl"
-
-            BasicVertexOutput Vertex(SimpleVertexInput input) {
-                UNITY_SETUP_INSTANCE_ID(input);
-                BasicVertexOutput output;
-                output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-                float shadowBias = SlopeScaleShadowBias(GetWorldNormal(input.normal), _SunlightShadowBias, .01);
-                // shadowBias = _SunlightShadowBias;
-#if UNITY_REVERSED_Z
-		        output.clipPos.z -= shadowBias;
-		        output.clipPos.z = min(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
-#else
-		        output.clipPos.z += shadowBias;
-		        output.clipPos.z = max(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
-#endif
-                return output;
-            }
-
-            float4 Fragment(BasicVertexOutput input) : SV_TARGET {
-                return 0;
-            }
+			#pragma vertex ShadowCasterVertex
+			#pragma fragment ShadowCasterFragment
 
 			ENDHLSL
         }
