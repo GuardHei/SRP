@@ -1,62 +1,47 @@
-﻿Shader "SRP/OpaqueDepthAndNormal" {
-    
+﻿Shader "SRP/OpaqueDepthNormal" {
+
     SubShader {
 
-        Tags { 
-            "RenderType"="Opaque"
+        Tags {
+            "RenderType" = "Opaque"
         }
 
         Pass {
 
-            Name "DepthAndNormal"
+            Name "DEPTHNORMAL"
 
             Tags {
-                "LightMode"="DepthAndNormal"
+                "LightMode" = "DepthNormal"
             }
 
-            ZTest LEqual
+            ZTest Less
             ZWrite On
 			Cull Back
 
             HLSLPROGRAM
-			#pragma target 3.5
 
-			#pragma vertex Vertex
-			#pragma fragment Fragment
+            #pragma target 3.5
+
+            #pragma vertex OpaqueDepthVertex
+            #pragma fragment OpaqueDepthFragment
             #pragma multi_compile_instancing
 
 			#include "SRPInclude.hlsl"
 
-            struct VertexInput {
-                float4 pos : POSITION;
-                float3 normal : NORMAL;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            struct VertexOutput {
-                float4 clipPos : SV_POSITION;
-                float3 normal : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            VertexOutput Vertex(VertexInput input) {
-                VertexOutput output;
+            SimpleVertexOutput OpaqueDepthVertex(SimpleVertexInput input) {
+                SimpleVertexOutput output;
                 UNITY_SETUP_INSTANCE_ID(input);
-                UNITY_TRANSFER_INSTANCE_ID(input, output);
-                output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
+                output.clipPos = GetClipPosition(GetWorldPosition(input.pos));
                 output.normal = GetWorldNormal(input.normal);
                 return output;
             }
 
-            float4 Fragment(VertexOutput input) : SV_TARGET {
-                UNITY_SETUP_INSTANCE_ID(input);
+            float4 OpaqueDepthFragment(SimpleVertexOutput input) : SV_TARGET {
                 float3 normal = normalize(input.normal);
-                // normal = normal / 2 + .5;
-                // if (normal.x < 0) return float4(0, 0, 1, 1);
                 return float4(normal, 1);
             }
 
-		    ENDHLSL
+            ENDHLSL
         }
     }
 }

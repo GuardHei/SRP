@@ -25,6 +25,7 @@ public class SRPipelineParams {
 	public bool enableDynamicBatching = true;
 	public bool enableInstancing = true;
 	public int depthTileResolution = 16;
+	public float alphaTestDepthCutoff = .001f;
 	public Material opaqueDepthNormalMaterial;
 	public ComputeShader tbrComputeShader;
 	public SunlightParams sunlightParams;
@@ -72,8 +73,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	private ComputeBuffer _spotLightBuffer;
 	
 	private readonly CommandBuffer _currentBuffer = new CommandBuffer { name = "Render Camera" };
-	
-	private DrawingSettings _drawSettings;
 
 	public SRPipeline() {
 		GraphicsSettings.lightsUseLinearIntensity = true;
@@ -175,6 +174,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		var zBufferParams = new Vector4(clipDistance / nearClipPlane, 1, clipDistance / (farClipPlane * nearClipPlane), 1 / farClipPlane);
 		
+		_currentBuffer.SetGlobalFloat(ShaderManager.ALPHA_TEST_DEPTH_CUTOFF, @params.alphaTestDepthCutoff);
 		_currentBuffer.SetGlobalVector(ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
 		
 		context.ExecuteCommandBuffer(_currentBuffer);
@@ -189,12 +189,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		if (!camera.TryGetCullingParameters(out var cullingParameters)) return;
 		cullingParameters.shadowDistance = Mathf.Min(@params.sunlightParams.shadowDistance, farClipPlane);
 		var cull = context.Cull(ref cullingParameters);
+		
+		var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.QuantizedFrontToBack | SortingCriteria.OptimizeStateChanges };
 
 		// 渲染深度图
-		_drawSettings.enableDynamicBatching = @params.enableDynamicBatching;
-		_drawSettings.enableInstancing = @params.enableInstancing;
-		
-		var sortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.OptimizeStateChanges };
+		var drawSettings = new DrawingSettings(ShaderTagManager.SRP_DEFAULT_UNLIT, sortingSettings) {
+			enableDynamicBatching = @params.enableDynamicBatching,
+			enableInstancing = @params.enableInstancing
+		};
 
 		var filterSettings = FilteringSettings.defaultValue;
 		filterSettings.layerMask = camera.cullingMask;
@@ -213,10 +215,16 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		ExecuteCurrentBuffer(context);
 		
 		// 渲染不透明物体的法线图和深度图
-		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
-		_drawSettings.overrideMaterial = @params.opaqueDepthNormalMaterial;
+		var depthNormalDrawSettings = new DrawingSettings(ShaderTagManager.DEPTH_NORMAL, sortingSettings) {
+			enableDynamicBatching = @params.enableDynamicBatching,
+			enableInstancing = @params.enableInstancing
+		};
+		
 		filterSettings.renderQueueRange = RenderQueueRange.opaque;
-		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
+		context.DrawRenderers(cull, ref depthNormalDrawSettings, ref filterSettings);
+		
+		filterSettings.renderQueueRange = new RenderQueueRange(2450, 2499);
+		context.DrawRenderers(cull, ref depthNormalDrawSettings, ref filterSettings);
 
 		var depthBoundTextureWidth = pixelWidth / @params.depthTileResolution;
 		var depthBoundTextureHeight = pixelHeight / @params.depthTileResolution;
@@ -366,9 +374,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// 渲染不透明物体
 		sortingSettings.criteria = SortingCriteria.OptimizeStateChanges;
-		_drawSettings.overrideMaterial = null;
-		_drawSettings.SetShaderPassName(0, ShaderTagManager.SRPDefaultUnlit);
-		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
+		drawSettings.overrideMaterial = null;
+		filterSettings.renderQueueRange = RenderQueueRange.opaque;
+		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
 		
 		// 渲染天空盒
 		if ((camera.clearFlags & CameraClearFlags.Skybox) != 0) context.DrawSkybox(camera);
@@ -376,9 +384,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		// 渲染半透明物体
 		/*
 		sortingSettings.criteria = SortingCriteria.CommonTransparent;
-		_drawSettings.sortingSettings = sortingSettings;
+		drawSettings.sortingSettings = sortingSettings;
 		filterSettings.renderQueueRange = RenderQueueRange.transparent;
-		context.DrawRenderers(cull, ref _drawSettings, ref filterSettings);
+		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
 		*/
 
 #if UNITY_EDITOR

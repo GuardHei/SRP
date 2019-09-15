@@ -5,9 +5,10 @@ using UnityEngine;
 [ExecuteInEditMode]
 public class TestBehaviour : MonoBehaviour {
 
-	public float intensity;
+	public Shader shader;
 
 	private void OnValidate() {
-		GetComponent<Light>().intensity = intensity;
+		if (shader == null) return;
+		Debug.Log(shader.passCount);
 	}
 }

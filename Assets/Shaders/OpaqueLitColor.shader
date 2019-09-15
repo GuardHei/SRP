@@ -1,10 +1,12 @@
-﻿Shader "SRP/LitColor" {
+﻿Shader "SRP/OpaqueLitColor" {
 
     Properties {
 	    _Color("Color", Color) = (0, 0, 0, 1)
 	}
     
     SubShader {
+
+        UsePass "SRP/OpaqueDepthNormal/DEPTHNORMAL"
 
         Pass {
 

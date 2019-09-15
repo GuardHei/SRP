@@ -14,6 +14,7 @@ public class ShaderManager {
 	public static readonly int CAMERA_FORWARD = Shader.PropertyToID("_CameraForward");
 	public static readonly int CAMERA_POSITION = Shader.PropertyToID("_CameraPosition");
 	public static readonly int Z_BUFFER_PARAMS = Shader.PropertyToID("_ZBufferParams");
+	public static readonly int ALPHA_TEST_DEPTH_CUTOFF = Shader.PropertyToID("_AlphaTestDepthCutoff");
 	public static readonly int SUNLIGHT_COLOR = Shader.PropertyToID("_SunlightColor");
 	public static readonly int SUNLIGHT_DIRECTION = Shader.PropertyToID("_SunlightDirection");
 	public static readonly int SUNLIGHT_SHADOW_BIAS = Shader.PropertyToID("_SunlightShadowBias");

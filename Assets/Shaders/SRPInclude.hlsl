@@ -44,6 +44,7 @@ CBUFFER_START(UnityPerFrame)
     float3 _SunlightDirection;
     float _SunlightShadowBias;
     float _SunlightShadowStrength;
+    float _AlphaTestDepthCutoff;
 CBUFFER_END
 
 CBUFFER_START(UnityPerDraw)
