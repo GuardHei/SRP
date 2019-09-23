@@ -65,11 +65,16 @@
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
                 uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
                 uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
-                // return DefaultDirectionShadow(input.worldPos);
-                float3 litColor = DefaultDirectionLit(normal) * DefaultDirectionShadow(input.worldPos);
-                // litColor = float3(0, 0, 0);
+                // return DefaultCascadedDirectionalShadow(input.worldPos);
+                float3 litColor = DefaultDirectionalLit(normal) * DefaultCascadedDirectionalShadow(input.worldPos);
+                [loop]
+                for (uint i = 0; i < pointLightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+                [loop]
+                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+                return float4(litColor * color, 1);
 
 /*
+                litColor = float3(0, 0, 0);
                 pointLightCount = min(pointLightCount, 1);
 
                 [loop]
@@ -82,21 +87,11 @@
 
                 return float4(input.screenPos.xy, 0, 1);
 
-                // return float4(lightTextureIndex.x / 160.0, lightTextureIndex.y / 90.0, 0, 1);
-*/
+                return float4(lightTextureIndex.x / 160.0, lightTextureIndex.y / 90.0, 0, 1);
 
-                [loop]
-                for (uint i = 0; i < pointLightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
-
-                [loop]
-                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
-
-/*
                 if (spotLightCount > 0) return float4(1, 0, 0, 1);
                 else return float4(0, 1, 0, 1);
 */
-
-                return float4(litColor * color, 1);
 
             }
 

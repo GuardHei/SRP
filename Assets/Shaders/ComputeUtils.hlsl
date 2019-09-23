@@ -86,6 +86,11 @@ inline float ConeInsidePlane(Cone cone, float4 plane) {
     return VertexInsidePlane(cone.vertex, plane) + VertexInsidePlane(q, plane);
 }
 
+inline float VertexInsideSphere(float3 vertex, float4 sphere) {
+    float3 distance = vertex - sphere.xyz;
+    return dot(distance, distance) < sphere.w;
+}
+
 inline float SphereIntersect(float4 sphere, float4 plane) {
     return (GetDistanceToPlane(plane, sphere.xyz) < sphere.w);
 }

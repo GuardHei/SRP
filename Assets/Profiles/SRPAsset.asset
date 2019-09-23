@@ -16,19 +16,15 @@ MonoBehaviour:
     enableDynamicBatching: 1
     enableInstancing: 1
     depthTileResolution: 16
-    opaqueDepthNormalMaterial: {fileID: 2100000, guid: feda4a41e1bf5426a8da432421835fc3,
-      type: 2}
+    alphaTestDepthCutoff: 0.001
     tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
     sunlightParams:
       shadowOn: 1
-      shadowResolution: 4096
-      shadowCascades: 1
-      shadowCascadeSplits:
-      - 0.067
-      - 0.2
-      - 0.467
-      shadowDistance: 50
+      shadowResolution: 2048
+      shadowCascades: 4
+      shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
+      shadowDistance: 100
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
-    depthBoundOn: 0
+    depthBoundOn: 1
     gizmosOn: 0

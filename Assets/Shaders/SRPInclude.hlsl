@@ -11,10 +11,9 @@
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
 
-Texture2D _OpaqueNormalTexture;
+SamplerState linear_clamp_sampler;
 
-// Texture2DArray<float> _SunlightShadowmap;
-// SamplerState sampler_SunlightShadowmap;
+Texture2D _OpaqueNormalTexture;
 
 Texture3D<uint> _CulledPointLightTexture;
 Texture3D<uint> _CulledSpotLightTexture;
@@ -24,7 +23,9 @@ SAMPLER(sampler_OpaqueDepthTexture);
 
 TEXTURE2D(_SunlightShadowmap);
 SAMPLER_CMP(sampler_SunlightShadowmap);
-SamplerState linear_clamp_sampler;
+
+TEXTURE2D_ARRAY(_SunlightShadowmapArray);
+SAMPLER_CMP(sampler_SunlightShadowmapArray);
 
 /*
 TEXTURE2D(_OpaqueNormalTexture);
@@ -33,7 +34,9 @@ SAMPLER(sampler_OpaqueNormalTexture);
 
 CBUFFER_START(UnityPerFrame)
     float4x4 unity_MatrixVP;
-    float4x4 sunlight_MatrixVP;
+    float4x4 sunlight_InverseVP;
+    float4x4 sunlight_InverseVPArray[4];
+    float4 _SunlightShadowSplitBoundArray[4];
     float4 _WorldSpaceCameraPos;
     float4 _ScreenParams;
     float4 _ProjectionParams;
@@ -43,6 +46,7 @@ CBUFFER_START(UnityPerFrame)
     float3 _SunlightColor;
     float3 _SunlightDirection;
     float _SunlightShadowBias;
+    float _SunlightShadowDistance;
     float _SunlightShadowStrength;
     float _AlphaTestDepthCutoff;
 CBUFFER_END
@@ -123,24 +127,51 @@ inline float3 WorldSpaceViewDirection(float3 worldPos) {
 ////////////////////////
 // Lighting Functions //
 ////////////////////////
-
+ 
 inline float SlopeScaleShadowBias(float3 worldNormal, float biasStrength, float maxBias) {
     return clamp(biasStrength * TanBetween(worldNormal, _SunlightDirection), 0, maxBias);
 }
 
-inline float AlternateSlopeScaleShadowBias(float3 worldNormal, float constantBias, float maxBias) {
+inline float LegacySlopeScaleShadowBias(float3 worldNormal, float constantBias, float maxBias) {
     return constantBias + clamp(TanBetween(worldNormal, _SunlightDirection), 0, maxBias);
 }
 
-inline float3 DefaultDirectionLit(float3 worldNormal) {
+inline float3 DefaultDirectionalLit(float3 worldNormal) {
     float diffuse = saturate(dot(worldNormal, _SunlightDirection));
     return diffuse * _SunlightColor;
 }
 
-inline float DefaultDirectionShadow(float3 worldPos) {
-    float4 shadowPos = mul(sunlight_MatrixVP, float4(worldPos, 1.0));
+inline float DefaultDirectionalShadow(float3 worldPos) {
+    float4 shadowPos = mul(sunlight_InverseVP, float4(worldPos, 1));
     shadowPos.xyz /= shadowPos.w;
     return lerp(1, SAMPLE_TEXTURE2D_SHADOW(_SunlightShadowmap, sampler_SunlightShadowmap, shadowPos.xyz), _SunlightShadowStrength);
+}
+
+inline float DefaultCascadedDirectionalShadow(float3 worldPos) {
+    float3 diff = worldPos - _WorldSpaceCameraPos;
+    if (dot(diff, diff) > _SunlightShadowDistance * _SunlightShadowDistance) return 1;
+    float4 cascadeFlags = float4(VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[0]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[1]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[2]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[3]));
+    cascadeFlags.yzw = saturate(cascadeFlags.yzw - cascadeFlags.xyz);
+    float cascadeIndex = 4 - dot(cascadeFlags, float4(4, 3, 2, 1));
+    // cascadeIndex = 1;
+    /*
+    if (cascadeFlags.x > .5) cascadeIndex = 0;
+    else if (cascadeFlags.y > .5) cascadeIndex = 1;
+    else if (cascadeFlags.z > .5) cascadeIndex = 2;
+    else if (cascadeFlags.w > .5) cascadeIndex = 3;
+    else return 1;
+    */
+    float4 shadowPos = mul(sunlight_InverseVPArray[cascadeIndex], float4(worldPos, 1));
+    shadowPos.xyz /= shadowPos.w;
+    return lerp(1, SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray, sampler_SunlightShadowmapArray, shadowPos.xyz, cascadeIndex), _SunlightShadowStrength);
+/*
+    // return dot(cascadeFlags, .25);
+    if (cascadeFlags.x > .5) return .25;
+    if (cascadeFlags.y > .5) return .5;
+    if (cascadeFlags.z > .5) return .75;
+    if (cascadeFlags.w > .5) return 1;
+    return 0;
+*/
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
@@ -203,8 +234,9 @@ float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
 BasicVertexOutput ShadowCasterVertex(SimpleVertexInput input) {
     UNITY_SETUP_INSTANCE_ID(input);
     BasicVertexOutput output;
-    output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-    float shadowBias = SlopeScaleShadowBias(GetWorldNormal(input.normal), _SunlightShadowBias, .01);
+    float4 worldPos = GetWorldPosition(input.pos.xyz);
+    output.clipPos = GetClipPosition(worldPos);
+    float shadowBias = SlopeScaleShadowBias(GetWorldNormal(input.normal), _SunlightShadowBias, .025);
     // shadowBias = _SunlightShadowBias;
 #if UNITY_REVERSED_Z
 	output.clipPos.z -= shadowBias;

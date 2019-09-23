@@ -2,6 +2,7 @@
 #pragma kernel GenerateDepthFrustum
 #pragma kernel CullPointLight
 #pragma kernel CullSpotLight
+#pragma kernel CullDecal
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
@@ -124,4 +125,19 @@ void CullSpotLight(uint2 id : SV_DISPATCHTHREADID) {
     }
 
     _CulledSpotLightTexture[lightCountIndex] = lightCount;
+}
+
+[numthreads(16, 9, 1)]
+void CullDecal(uint2 id : SV_DISPATCHTHREADID) {
+    float4 planes[6];
+
+    planes[0] = _DepthFrustumTexture[uint3(id, 0)];
+    planes[1] = _DepthFrustumTexture[uint3(id, 1)];
+    planes[2] = _DepthFrustumTexture[uint3(id, 2)];
+    planes[3] = _DepthFrustumTexture[uint3(id, 3)];
+    planes[4] = _DepthFrustumTexture[uint3(id, 4)];
+    planes[5] = _DepthFrustumTexture[uint3(id, 5)];
+
+    uint decalCount = 0;
+    uint3 decalCountIndex = uint3(id, 0);
 }
