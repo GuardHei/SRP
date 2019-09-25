@@ -183,6 +183,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			context.DrawShadows(ref shadowSettings);
 		}
 		
+		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_BIAS, sunlight.shadowBias);
+		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_NORMAL_BIAS, sunlight.shadowNormalBias);
+		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_STRENGTH, sunlight.shadowStrength);
 		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_DISTANCE, shadowDistance);
 		_currentBuffer.SetGlobalMatrixArray(ShaderManager.SUNLIGHT_INVERSE_VP_ARRAY, sunlightInverseVPArray);
 		_currentBuffer.SetGlobalVectorArray(ShaderManager.SUNLIGHT_SHADOW_SPLIT_BOUND_ARRAY, sunlightShadowSplitBoundArray);
@@ -313,8 +316,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			sunlightColor = sunlight.color * sunlight.intensity;
 		}
 		
-		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_BIAS, sunlight.shadowBias);
-		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_STRENGTH, sunlight.shadowStrength);
 		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_COLOR, sunlightColor);
 		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_DIRECTION, sunlightDirection);
 

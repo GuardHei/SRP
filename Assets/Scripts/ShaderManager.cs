@@ -18,6 +18,7 @@ public class ShaderManager {
 	public static readonly int SUNLIGHT_COLOR = Shader.PropertyToID("_SunlightColor");
 	public static readonly int SUNLIGHT_DIRECTION = Shader.PropertyToID("_SunlightDirection");
 	public static readonly int SUNLIGHT_SHADOW_BIAS = Shader.PropertyToID("_SunlightShadowBias");
+	public static readonly int SUNLIGHT_SHADOW_NORMAL_BIAS = Shader.PropertyToID("_SunlightShadowNormalBias");
 	public static readonly int SUNLIGHT_SHADOW_DISTANCE = Shader.PropertyToID("_SunlightShadowDistance");
 	public static readonly int SUNLIGHT_SHADOW_STRENGTH = Shader.PropertyToID("_SunlightShadowStrength");
 	public static readonly int SUNLIGHT_SHADOWMAP = Shader.PropertyToID("_SunlightShadowmap");

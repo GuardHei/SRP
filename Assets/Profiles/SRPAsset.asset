@@ -23,7 +23,7 @@ MonoBehaviour:
       shadowResolution: 2048
       shadowCascades: 4
       shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
-      shadowDistance: 100
+      shadowDistance: 50
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
     depthBoundOn: 1

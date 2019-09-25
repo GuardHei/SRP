@@ -46,6 +46,7 @@ CBUFFER_START(UnityPerFrame)
     float3 _SunlightColor;
     float3 _SunlightDirection;
     float _SunlightShadowBias;
+    float _SunlightShadowNormalBias;
     float _SunlightShadowDistance;
     float _SunlightShadowStrength;
     float _AlphaTestDepthCutoff;
@@ -129,11 +130,31 @@ inline float3 WorldSpaceViewDirection(float3 worldPos) {
 ////////////////////////
  
 inline float SlopeScaleShadowBias(float3 worldNormal, float biasStrength, float maxBias) {
+    // return clamp(biasStrength * dot(mul(unity_MatrixVP, float4(worldNormal, 1)), mul(unity_MatrixVP, float4(_SunlightDirection, 1))), 0, maxBias);
     return clamp(biasStrength * TanBetween(worldNormal, _SunlightDirection), 0, maxBias);
 }
 
 inline float LegacySlopeScaleShadowBias(float3 worldNormal, float constantBias, float maxBias) {
     return constantBias + clamp(TanBetween(worldNormal, _SunlightDirection), 0, maxBias);
+}
+
+inline float4 ShadowNormalBias(float4 worldPos, float3 worldNormal) {
+    float shadowCos = CosBetween(worldNormal, _SunlightDirection);
+    float shadowSin = SinOf(shadowCos);
+    float normalBias = _SunlightShadowNormalBias * shadowSin;
+    worldPos -= float4(worldNormal * normalBias, 0);
+    return GetClipPosition(worldPos);
+}
+
+inline float4 ClipSpaceShadowBias(float4 clipPos) {
+#if UNITY_REVERSED_Z
+	clipPos.z -= saturate(_SunlightShadowBias / clipPos.w);
+	clipPos.z = min(clipPos.z, clipPos.w * UNITY_NEAR_CLIP_VALUE);
+#else
+    clipPos.z += saturate(_SunlightShadowBias / clipPos.w);
+	clipPos.z = max(clipPos.z, clipPos.w * UNITY_NEAR_CLIP_VALUE)
+#endif
+    return clipPos;
 }
 
 inline float3 DefaultDirectionalLit(float3 worldNormal) {
@@ -147,31 +168,15 @@ inline float DefaultDirectionalShadow(float3 worldPos) {
     return lerp(1, SAMPLE_TEXTURE2D_SHADOW(_SunlightShadowmap, sampler_SunlightShadowmap, shadowPos.xyz), _SunlightShadowStrength);
 }
 
-inline float DefaultCascadedDirectionalShadow(float3 worldPos) {
+float DefaultCascadedDirectionalShadow(float3 worldPos, float3 worldNormal) {
     float3 diff = worldPos - _WorldSpaceCameraPos;
     if (dot(diff, diff) > _SunlightShadowDistance * _SunlightShadowDistance) return 1;
     float4 cascadeFlags = float4(VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[0]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[1]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[2]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[3]));
     cascadeFlags.yzw = saturate(cascadeFlags.yzw - cascadeFlags.xyz);
     float cascadeIndex = 4 - dot(cascadeFlags, float4(4, 3, 2, 1));
-    // cascadeIndex = 1;
-    /*
-    if (cascadeFlags.x > .5) cascadeIndex = 0;
-    else if (cascadeFlags.y > .5) cascadeIndex = 1;
-    else if (cascadeFlags.z > .5) cascadeIndex = 2;
-    else if (cascadeFlags.w > .5) cascadeIndex = 3;
-    else return 1;
-    */
     float4 shadowPos = mul(sunlight_InverseVPArray[cascadeIndex], float4(worldPos, 1));
     shadowPos.xyz /= shadowPos.w;
     return lerp(1, SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray, sampler_SunlightShadowmapArray, shadowPos.xyz, cascadeIndex), _SunlightShadowStrength);
-/*
-    // return dot(cascadeFlags, .25);
-    if (cascadeFlags.x > .5) return .25;
-    if (cascadeFlags.y > .5) return .5;
-    if (cascadeFlags.z > .5) return .75;
-    if (cascadeFlags.w > .5) return 1;
-    return 0;
-*/
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
@@ -234,17 +239,9 @@ float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
 BasicVertexOutput ShadowCasterVertex(SimpleVertexInput input) {
     UNITY_SETUP_INSTANCE_ID(input);
     BasicVertexOutput output;
+    float3 worldNormal = GetWorldNormal(input.normal);
     float4 worldPos = GetWorldPosition(input.pos.xyz);
-    output.clipPos = GetClipPosition(worldPos);
-    float shadowBias = SlopeScaleShadowBias(GetWorldNormal(input.normal), _SunlightShadowBias, .025);
-    // shadowBias = _SunlightShadowBias;
-#if UNITY_REVERSED_Z
-	output.clipPos.z -= shadowBias;
-	output.clipPos.z = min(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
-#else
-	output.clipPos.z += shadowBias;
-	output.clipPos.z = max(output.clipPos.z, output.clipPos.w * UNITY_NEAR_CLIP_VALUE);
-#endif
+    output.clipPos = ClipSpaceShadowBias(ShadowNormalBias(worldPos, worldNormal));
     return output;
 }
 
