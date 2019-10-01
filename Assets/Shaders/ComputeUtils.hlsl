@@ -20,6 +20,7 @@ struct SpotLight {
     float4x4 matrixVP;
     float smallAngle;
     float nearClip;
+    uint shadowIndex;
 };
 
 CBUFFER_START(UnityPerFrame)

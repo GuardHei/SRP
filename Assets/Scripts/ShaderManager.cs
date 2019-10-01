@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class ShaderManager {
 
+	// Properties
 	public static readonly int OPAQUE_DEPTH_TEXTURE = Shader.PropertyToID("_OpaqueDepthTexture");
 	public static readonly int OPAQUE_NORMAL_TEXTURE = Shader.PropertyToID("_OpaqueNormalTexture");
 	public static readonly int TRANSPARENT_MIN_DEPTH_TEXTURE = Shader.PropertyToID("_TransparentMinDepthTexture");
@@ -22,6 +23,7 @@ public class ShaderManager {
 	public static readonly int SUNLIGHT_SHADOW_DISTANCE = Shader.PropertyToID("_SunlightShadowDistance");
 	public static readonly int SUNLIGHT_SHADOW_STRENGTH = Shader.PropertyToID("_SunlightShadowStrength");
 	public static readonly int SUNLIGHT_SHADOWMAP = Shader.PropertyToID("_SunlightShadowmap");
+	public static readonly int SUNLIGHT_SHADOWMAP_SIZE = Shader.PropertyToID("_SunlightShadowmapSize");
 	public static readonly int SUNLIGHT_SHADOWMAP_ARRAY = Shader.PropertyToID("_SunlightShadowmapArray");
 	public static readonly int SUNLIGHT_INVERSE_VP = Shader.PropertyToID("sunlight_InverseVP");
 	public static readonly int SUNLIGHT_INVERSE_VP_ARRAY = Shader.PropertyToID("sunlight_InverseVPArray");
@@ -31,4 +33,7 @@ public class ShaderManager {
 	public static readonly int SPOT_LIGHT_COUNT = Shader.PropertyToID("_SpotLightCount");
 	public static readonly int POINT_LIGHT_BUFFER = Shader.PropertyToID("_PointLightBuffer");
 	public static readonly int SPOT_LIGHT_BUFFER = Shader.PropertyToID("_SpotLightBuffer");
+
+	// Keywords
+	public const string SUNLIGHT_SOFT_SHADOWS = "_SUNLIGHT_SOFT_SHADOWS";
 }

@@ -5,6 +5,7 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityInstancing.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Shadow/ShadowSamplingTent.hlsl"
 
 #include "ComputeUtils.hlsl"
 
@@ -42,6 +43,7 @@ CBUFFER_START(UnityPerFrame)
     float4 _ProjectionParams;
     float4 _OpaqueDepthTexture_ST;
     float4 _SunlightShadowmap_ST;
+    float4 _SunlightShadowmapSize;
     // float4 _OpaqueNormalTexture_ST;
     float3 _SunlightColor;
     float3 _SunlightDirection;
@@ -157,9 +159,17 @@ inline float4 ClipSpaceShadowBias(float4 clipPos) {
     return clipPos;
 }
 
-inline float3 DefaultDirectionalLit(float3 worldNormal) {
-    float diffuse = saturate(dot(worldNormal, _SunlightDirection));
-    return diffuse * _SunlightColor;
+inline float CascadedDirectionalHardShadow(float3 shadowPos, float cascadeIndex) {
+    return SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray, sampler_SunlightShadowmapArray, shadowPos, cascadeIndex);
+}
+
+inline float CascadedDirectionalSoftShadow(float3 shadowPos, float cascadeIndex) {
+    real tentWeights[9];
+    real2 tentUVs[9];
+    SampleShadow_ComputeSamples_Tent_5x5(_SunlightShadowmapSize, shadowPos.xy, tentWeights, tentUVs);
+    float attenuation = 0;
+    for (uint i = 0; i < 9; i++) attenuation += tentWeights[i] * CascadedDirectionalHardShadow(float3(tentUVs[i].xy, shadowPos.z), cascadeIndex);
+    return attenuation;
 }
 
 inline float DefaultDirectionalShadow(float3 worldPos) {
@@ -169,14 +179,24 @@ inline float DefaultDirectionalShadow(float3 worldPos) {
 }
 
 float DefaultCascadedDirectionalShadow(float3 worldPos, float3 worldNormal) {
-    float3 diff = worldPos - _WorldSpaceCameraPos;
+    float3 diff = worldPos - _WorldSpaceCameraPos; 
     if (dot(diff, diff) > _SunlightShadowDistance * _SunlightShadowDistance) return 1;
     float4 cascadeFlags = float4(VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[0]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[1]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[2]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[3]));
     cascadeFlags.yzw = saturate(cascadeFlags.yzw - cascadeFlags.xyz);
     float cascadeIndex = 4 - dot(cascadeFlags, float4(4, 3, 2, 1));
     float4 shadowPos = mul(sunlight_InverseVPArray[cascadeIndex], float4(worldPos, 1));
     shadowPos.xyz /= shadowPos.w;
-    return lerp(1, SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray, sampler_SunlightShadowmapArray, shadowPos.xyz, cascadeIndex), _SunlightShadowStrength);
+#if !defined(_SUNLIGHT_SOFT_SHADOWS)
+    float shadowAttenuation = CascadedDirectionalHardShadow(shadowPos, cascadeIndex);
+#else
+    float shadowAttenuation = CascadedDirectionalSoftShadow(shadowPos, cascadeIndex);
+#endif
+    return lerp(1, shadowAttenuation, _SunlightShadowStrength);
+}
+
+inline float3 DefaultDirectionalLit(float3 worldNormal) {
+    float diffuse = saturate(dot(worldNormal, _SunlightDirection));
+    return diffuse * _SunlightColor;
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {

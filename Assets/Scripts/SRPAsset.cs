@@ -182,13 +182,19 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			
 			context.DrawShadows(ref shadowSettings);
 		}
+
+		var inverseShadowmapSize = 1f / @params.sunlightParams.shadowResolution;
 		
 		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_BIAS, sunlight.shadowBias);
 		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_NORMAL_BIAS, sunlight.shadowNormalBias);
 		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_STRENGTH, sunlight.shadowStrength);
 		_currentBuffer.SetGlobalFloat(ShaderManager.SUNLIGHT_SHADOW_DISTANCE, shadowDistance);
+		_currentBuffer.SetGlobalVector(ShaderManager.SUNLIGHT_SHADOWMAP_SIZE, new Vector4(inverseShadowmapSize, inverseShadowmapSize, @params.sunlightParams.shadowResolution, @params.sunlightParams.shadowResolution));
 		_currentBuffer.SetGlobalMatrixArray(ShaderManager.SUNLIGHT_INVERSE_VP_ARRAY, sunlightInverseVPArray);
 		_currentBuffer.SetGlobalVectorArray(ShaderManager.SUNLIGHT_SHADOW_SPLIT_BOUND_ARRAY, sunlightShadowSplitBoundArray);
+		
+		if (sunlight.shadows == LightShadows.Soft) _currentBuffer.EnableShaderKeyword(ShaderManager.SUNLIGHT_SOFT_SHADOWS);
+		else _currentBuffer.DisableShaderKeyword(ShaderManager.SUNLIGHT_SOFT_SHADOWS);
 		
 		ExecuteCurrentBuffer(context);
 	}
@@ -574,4 +580,5 @@ public struct SpotLight {
 	public float4x4 matrixVP;
 	public float innerAngle;
 	public float nearClip;
+	public uint shadowIndex;
 }

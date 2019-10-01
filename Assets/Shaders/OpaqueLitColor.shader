@@ -24,6 +24,7 @@
 			#pragma vertex Vertex
 			#pragma fragment Fragment
             #pragma multi_compile_instancing
+            #pragma multi_compile _ _SUNLIGHT_SOFT_SHADOWS
 
 			#include "SRPInclude.hlsl"
 
