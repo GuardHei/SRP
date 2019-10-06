@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Transparent Depth Min
-  m_Shader: {fileID: 4800000, guid: 039efbc88fa8b49ca8dc336516f46ab6, type: 3}
+  m_Name: Depth Flip
+  m_Shader: {fileID: 4800000, guid: 76669e6fadc164edb860a38f60d1c20c, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0

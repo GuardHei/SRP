@@ -16,6 +16,7 @@ struct PointLight {
 
 struct SpotLight {
     float3 color;
+    float shadowStrength;
     Cone cone;
     float4x4 matrixVP;
     float smallAngle;

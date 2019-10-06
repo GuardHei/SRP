@@ -8,7 +8,8 @@
 
 #include "ComputeUtils.hlsl"
 
-#define MAXLIGHTPERTILE 64
+#define MAXLIGHTPERTILE 16
+#define MAXDECALPERTILE 4
 
 RWTexture2D<float2> _DepthBoundTexture;
 RWTexture3D<float4> _DepthFrustumTexture;

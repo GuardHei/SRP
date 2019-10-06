@@ -24,16 +24,20 @@
 			#pragma vertex Vertex
 			#pragma fragment Fragment
             #pragma multi_compile_instancing
+            #pragma multi_compile _ _SUNLIGHT_SHADOWS
             #pragma multi_compile _ _SUNLIGHT_SOFT_SHADOWS
+            #pragma multi_compile _ _POINT_LIGHT_SHADOWS
+            #pragma multi_compile _ _POINT_LIGHT_SOFT_SHADOWS
+            #pragma multi_compile _ _SPOT_LIGHT_SHADOWS
+            #pragma multi_compile _ _SPOT_LIGHT_SOFT_SHADOWS
 
 			#include "SRPInclude.hlsl"
 
             struct VertexOutput {
                 float4 clipPos : SV_POSITION;
-                float3 normal : TEXCOORD0;
-                float4 worldPos : TEXCOORD1;
-                float3 viewDir : TEXCOORD2;
-                float4 screenPos : TEXCOORD3;
+                float4 worldPos : TEXCOORD0;
+                float3 viewDir : TEXCOORD1;
+                float4 screenPos : TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -41,13 +45,12 @@
                 UNITY_DEFINE_INSTANCED_PROP(float3, _Color)
             UNITY_INSTANCING_BUFFER_END(PerInstance)
 
-            VertexOutput Vertex(SimpleVertexInput input) {
+            VertexOutput Vertex(BasicVertexInput input) {
                 VertexOutput output;
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
                 output.worldPos = GetWorldPosition(input.pos.xyz);
                 output.clipPos = GetClipPosition(output.worldPos);
-                output.normal = GetWorldNormal(input.normal);
                 output.viewDir = normalize(WorldSpaceViewDirection(output.worldPos));
                 output.screenPos = ComputeScreenPosition(output.clipPos);
                 return output;
@@ -66,33 +69,12 @@
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
                 uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
                 uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
-                // return DefaultCascadedDirectionalShadow(input.worldPos);
-                float3 litColor = DefaultDirectionalLit(normal) * DefaultCascadedDirectionalShadow(input.worldPos, normal);
+                float3 litColor = DefaultDirectionalLit(normal) * DefaultCascadedDirectionalShadow(input.worldPos);
                 [loop]
                 for (uint i = 0; i < pointLightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
                 [loop]
-                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1)) * DefaultSpotShadow(i, input.worldPos); 
                 return float4(litColor * color, 1);
-
-/*
-                litColor = float3(0, 0, 0);
-                pointLightCount = min(pointLightCount, 1);
-
-                [loop]
-                for (uint i = 0; i < pointLightCount; ++i) {
-                    PointLight light = _PointLightBuffer[_CulledPointLightTexture[uint3(lightTextureIndex, i + 1)]];
-                    litColor = light.color;
-                }
-
-                return float4(litColor, 1);
-
-                return float4(input.screenPos.xy, 0, 1);
-
-                return float4(lightTextureIndex.x / 160.0, lightTextureIndex.y / 90.0, 0, 1);
-
-                if (spotLightCount > 0) return float4(1, 0, 0, 1);
-                else return float4(0, 1, 0, 1);
-*/
 
             }
 

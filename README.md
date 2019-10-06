@@ -28,7 +28,7 @@ Not ready yet
 
 Parameters
 + 2k resolution
-+ 8k shadowmap resolution
++ 4k shadowmap resolution
 + 59 point lights
 + 20 spot lights
 + 1 directional light
@@ -39,4 +39,4 @@ Configs
 + macOS Mojave 10.14.4
 + 3.1 GHz Intel Core i7
 + 16 GB 2133 MHz LPDDR3
-+ Radeon Pro 560 4 GBB
++ Radeon Pro 560 4 GB

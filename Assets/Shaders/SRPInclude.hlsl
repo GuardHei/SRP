@@ -1,6 +1,15 @@
 ﻿#ifndef SRP_INCLUDE
 #define SRP_INCLUDE
 
+/*
+#pragma multi_compile _ _SUNLIGHT_SHADOWS
+#pragma multi_compile _ _SUNLIGHT_SOFT_SHADOWS
+#pragma multi_compile _ _POINT_LIGHT_SHADOWS
+#pragma multi_compile _ _POINT_LIGHT_SOFT_SHADOWS
+#pragma multi_compile _ _SPOT_LIGHT_SHADOWS
+#pragma multi_compile _ _SPOT_LIGHT_SOFT_SHADOWS
+*/
+
 #define UNITY_MATRIX_M unity_ObjectToWorld
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
@@ -12,7 +21,8 @@
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
 
-SamplerState linear_clamp_sampler;
+StructuredBuffer<float4x4> pointLight_InverseVPBuffer;
+StructuredBuffer<float4x4> spotLight_InverseVPBuffer;
 
 Texture2D _OpaqueNormalTexture;
 
@@ -28,6 +38,9 @@ SAMPLER_CMP(sampler_SunlightShadowmap);
 TEXTURE2D_ARRAY(_SunlightShadowmapArray);
 SAMPLER_CMP(sampler_SunlightShadowmapArray);
 
+TEXTURE2D_ARRAY(_SpotLightShadowmapArray);
+SAMPLER_CMP(sampler_SpotLightShadowmapArray);
+
 /*
 TEXTURE2D(_OpaqueNormalTexture);
 SAMPLER(sampler_OpaqueNormalTexture);
@@ -35,22 +48,11 @@ SAMPLER(sampler_OpaqueNormalTexture);
 
 CBUFFER_START(UnityPerFrame)
     float4x4 unity_MatrixVP;
-    float4x4 sunlight_InverseVP;
-    float4x4 sunlight_InverseVPArray[4];
-    float4 _SunlightShadowSplitBoundArray[4];
     float4 _WorldSpaceCameraPos;
     float4 _ScreenParams;
     float4 _ProjectionParams;
     float4 _OpaqueDepthTexture_ST;
-    float4 _SunlightShadowmap_ST;
-    float4 _SunlightShadowmapSize;
-    // float4 _OpaqueNormalTexture_ST;
-    float3 _SunlightColor;
-    float3 _SunlightDirection;
-    float _SunlightShadowBias;
-    float _SunlightShadowNormalBias;
-    float _SunlightShadowDistance;
-    float _SunlightShadowStrength;
+    float4 _OpaqueNormalTexture_ST;
     float _AlphaTestDepthCutoff;
 CBUFFER_END
 
@@ -60,6 +62,28 @@ CBUFFER_END
 
 CBUFFER_START(UnityPerMaterial)
     float4 _MainTex_ST;
+    float4 _MainTex_TexelSize;
+CBUFFER_END
+
+CBUFFER_START(Shadow)
+    float _ShadowBias;
+    float _ShadowNormalBias;
+    float _PointLightShadowmap_ST;
+    float _SpotLightShadowmap_ST;
+    float4 _SpotLightShadowmapSize;
+    float4 _PointLightShadowmapSize;
+CBUFFER_END
+
+CBUFFER_START(Sunlight)
+    float4x4 sunlight_InverseVP;
+    float4x4 sunlight_InverseVPArray[4];
+    float4 _SunlightShadowSplitBoundArray[4];
+    float4 _SunlightShadowmap_ST;
+    float4 _SunlightShadowmapSize;
+    float3 _SunlightColor;
+    float3 _SunlightDirection;
+    float _SunlightShadowDistance;
+    float _SunlightShadowStrength;
 CBUFFER_END
 
 //////////////////////////////////////////
@@ -143,17 +167,17 @@ inline float LegacySlopeScaleShadowBias(float3 worldNormal, float constantBias, 
 inline float4 ShadowNormalBias(float4 worldPos, float3 worldNormal) {
     float shadowCos = CosBetween(worldNormal, _SunlightDirection);
     float shadowSin = SinOf(shadowCos);
-    float normalBias = _SunlightShadowNormalBias * shadowSin;
+    float normalBias = _ShadowNormalBias * shadowSin;
     worldPos -= float4(worldNormal * normalBias, 0);
     return GetClipPosition(worldPos);
 }
 
 inline float4 ClipSpaceShadowBias(float4 clipPos) {
 #if UNITY_REVERSED_Z
-	clipPos.z -= saturate(_SunlightShadowBias / clipPos.w);
+	clipPos.z -= saturate(_ShadowBias / clipPos.w);
 	clipPos.z = min(clipPos.z, clipPos.w * UNITY_NEAR_CLIP_VALUE);
 #else
-    clipPos.z += saturate(_SunlightShadowBias / clipPos.w);
+    clipPos.z += saturate(_ShadowBias / clipPos.w);
 	clipPos.z = max(clipPos.z, clipPos.w * UNITY_NEAR_CLIP_VALUE)
 #endif
     return clipPos;
@@ -163,11 +187,12 @@ inline float CascadedDirectionalHardShadow(float3 shadowPos, float cascadeIndex)
     return SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray, sampler_SunlightShadowmapArray, shadowPos, cascadeIndex);
 }
 
-inline float CascadedDirectionalSoftShadow(float3 shadowPos, float cascadeIndex) {
+float CascadedDirectionalSoftShadow(float3 shadowPos, float cascadeIndex) {
     real tentWeights[9];
     real2 tentUVs[9];
     SampleShadow_ComputeSamples_Tent_5x5(_SunlightShadowmapSize, shadowPos.xy, tentWeights, tentUVs);
     float attenuation = 0;
+    [unroll]
     for (uint i = 0; i < 9; i++) attenuation += tentWeights[i] * CascadedDirectionalHardShadow(float3(tentUVs[i].xy, shadowPos.z), cascadeIndex);
     return attenuation;
 }
@@ -178,7 +203,10 @@ inline float DefaultDirectionalShadow(float3 worldPos) {
     return lerp(1, SAMPLE_TEXTURE2D_SHADOW(_SunlightShadowmap, sampler_SunlightShadowmap, shadowPos.xyz), _SunlightShadowStrength);
 }
 
-float DefaultCascadedDirectionalShadow(float3 worldPos, float3 worldNormal) {
+float DefaultCascadedDirectionalShadow(float3 worldPos) {
+#if !defined(_SUNLIGHT_SHADOWS)
+    return 1;
+#else
     float3 diff = worldPos - _WorldSpaceCameraPos; 
     if (dot(diff, diff) > _SunlightShadowDistance * _SunlightShadowDistance) return 1;
     float4 cascadeFlags = float4(VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[0]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[1]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[2]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[3]));
@@ -192,6 +220,40 @@ float DefaultCascadedDirectionalShadow(float3 worldPos, float3 worldNormal) {
     float shadowAttenuation = CascadedDirectionalSoftShadow(shadowPos, cascadeIndex);
 #endif
     return lerp(1, shadowAttenuation, _SunlightShadowStrength);
+#endif
+}
+
+inline float SpotHardShadow(float3 shadowPos, uint index) {
+    return SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SpotLightShadowmapArray, sampler_SpotLightShadowmapArray, shadowPos, index);
+}
+
+float SpotSoftShadow(float3 shadowPos, uint index) {
+    real tentWeights[9];
+    real2 tentUVs[9];
+    SampleShadow_ComputeSamples_Tent_5x5(_SpotLightShadowmapSize, shadowPos.xy, tentWeights, tentUVs);
+    float attenuation = 0;
+    [unroll]
+    for (uint i = 0; i < 9; i++) attenuation += tentWeights[i] * SpotHardShadow(float3(tentUVs[i].xy, shadowPos.z), index);
+    return attenuation;
+}
+
+float DefaultSpotShadow(uint index, float3 worldPos) {
+#if !defined(_SPOT_LIGHT_SHADOWS)
+    return 1;
+#else
+    SpotLight light = _SpotLightBuffer[index];
+    uint shadowIndex = light.shadowIndex;
+    if (shadowIndex == 0) return 1;
+    shadowIndex -= 1;
+    float4 shadowPos = mul(spotLight_InverseVPBuffer[index], float4(worldPos, 1));
+    shadowPos.xyz /= shadowPos.w;
+#if !defined(_SPOT_LIGHT_SOFT_SHADOWS)
+    float shadowAttenuation = SpotHardShadow(shadowPos, shadowIndex);
+#else
+    float shadowAttenuation = SpotSoftShadow(shadowPos, shadowIndex);
+#endif
+    return lerp(1, shadowAttenuation, light.shadowStrength);
+#endif
 }
 
 inline float3 DefaultDirectionalLit(float3 worldNormal) {
