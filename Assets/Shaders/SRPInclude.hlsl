@@ -244,8 +244,8 @@ float DefaultSpotShadow(uint index, float3 worldPos) {
     SpotLight light = _SpotLightBuffer[index];
     uint shadowIndex = light.shadowIndex;
     if (shadowIndex == 0) return 1;
-    shadowIndex -= 1;
-    float4 shadowPos = mul(spotLight_InverseVPBuffer[index], float4(worldPos, 1));
+    shadowIndex--;
+    float4 shadowPos = mul(spotLight_InverseVPBuffer[shadowIndex], float4(worldPos, 1));
     shadowPos.xyz /= shadowPos.w;
 #if !defined(_SPOT_LIGHT_SOFT_SHADOWS)
     float shadowAttenuation = SpotHardShadow(shadowPos, shadowIndex);

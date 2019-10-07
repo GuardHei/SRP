@@ -14,7 +14,7 @@
                 "RenderType"="Opaque"
             }
 
-            ZTest LEqual
+            ZTest Equal
             ZWrite On
 			Cull Back
 

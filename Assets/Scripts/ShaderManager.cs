@@ -4,6 +4,7 @@ using UnityEngine.Rendering;
 public class ShaderManager {
 
 	// Properties
+	public static readonly int COLOR_BUFFER = Shader.PropertyToID("_ColorBuffer");
 	public static readonly int OPAQUE_DEPTH_TEXTURE = Shader.PropertyToID("_OpaqueDepthTexture");
 	public static readonly int OPAQUE_NORMAL_TEXTURE = Shader.PropertyToID("_OpaqueNormalTexture");
 	public static readonly int DEPTH_BOUND_TEXTURE = Shader.PropertyToID("_DepthBoundTexture");

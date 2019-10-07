@@ -75,6 +75,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	public SRPipelineParams @params;
 	public Light sunlight;
 
+	private RenderTargetIdentifier _colorBufferId;
 	private RenderTargetIdentifier _opaqueDepthId;
 	private RenderTargetIdentifier _opaqueNormalId;
 	private RenderTargetIdentifier _sunlightShadowmapId;
@@ -110,6 +111,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			break;
 		}
 		
+		_colorBufferId = new RenderTargetIdentifier(ShaderManager.COLOR_BUFFER);
 		_opaqueDepthId = new RenderTargetIdentifier(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_opaqueNormalId = new RenderTargetIdentifier(ShaderManager.OPAQUE_NORMAL_TEXTURE);
 		_sunlightShadowmapId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP);
@@ -223,7 +225,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	private void RenderSpotLightShadow(ScriptableRenderContext context, CullingResults cull, int spotLightShadowCount, Light[] spotLights, int[] spotLightIndices) {
 		_currentBuffer.GetTemporaryRTArray(ShaderManager.SPOT_LIGHT_SHADOWMAP_ARRAY, @params.spotLightParams.shadowResolution, @params.spotLightParams.shadowResolution, spotLightShadowCount, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
 		var spotLightInverseVPArray = new Matrix4x4[spotLightShadowCount];
-		
 		for (var i = 0; i < spotLightShadowCount; i++) {
 			var light = spotLights[i];
 			
@@ -442,8 +443,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var pointLightIndex = 0;
 		var spotLightIndex = 0;
 
-		var pointLightShadowIndex = 1u;
-		var spotLightShadowIndex = 1u;
+		var pointLightShadowIndex = 0u;
+		var spotLightShadowIndex = 0u;
 
 		for (int i = 0, l = allLights.Length; i < l; i++) {
 			var visibleLight = allLights[i];
@@ -474,9 +475,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 					if (originalSpotLight.shadows != LightShadows.None) {
 						spotLight.shadowStrength = originalSpotLight.shadowStrength;
-						spotLight.shadowIndex = spotLightShadowIndex;
-						spotLightIndices[spotLightShadowIndex - 1] = i;
-						shadowSpotLights[spotLightShadowIndex - 1] = originalSpotLight;
+						spotLight.shadowIndex = spotLightShadowIndex + 1;
+						spotLightIndices[spotLightShadowIndex] = i;
+						shadowSpotLights[spotLightShadowIndex] = originalSpotLight;
 						spotLightShadowIndex++;
 					} else spotLight.shadowIndex = 0;
 
@@ -527,7 +528,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		// 绑定渲染目标为相机
 		context.SetupCameraProperties(camera);
-		// ResetRenderTarget(BuiltinRenderTextureType.CurrentActive, _opaqueDepthId, false, true, 0, Color.black);
+		ResetRenderTarget(_colorBufferId, _opaqueDepthId, false, true, 0, Color.black);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -544,6 +545,10 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		sortingSettings.criteria = SortingCriteria.CommonTransparent;
 		filterSettings.renderQueueRange = ShaderManager.DITHER_TRANSPARENT_RENDER_QUEUE;
 		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
+		
+		// context.SetupCameraProperties(camera);
+		
+		_currentBuffer.Blit(_colorBufferId, BuiltinRenderTextureType.CameraTarget);
 
 #if UNITY_EDITOR
 		if (@params.testMaterialOn) {
@@ -609,6 +614,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			volumeDepth = 17
 		};
 
+		_currentBuffer.GetTemporaryRT(ShaderManager.COLOR_BUFFER, pixelWidth, pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Point, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat);
 		// _currentBuffer.GetTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP, sunlightShadowmapDescriptor, FilterMode.Bilinear);
@@ -640,7 +646,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	}
 
 	private void ReleaseRTs() {
-		// _currentBuffer.ReleaseTemporaryRT(ShaderManager.TRANSPARENT_MIN_DEPTH_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.COLOR_BUFFER);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
