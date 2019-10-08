@@ -546,8 +546,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		filterSettings.renderQueueRange = ShaderManager.DITHER_TRANSPARENT_RENDER_QUEUE;
 		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
 		
-		// context.SetupCameraProperties(camera);
-		
+		// 将颜色缓冲输出到当前照相机渲染目标，一般是屏幕
 		_currentBuffer.Blit(_colorBufferId, BuiltinRenderTextureType.CameraTarget);
 
 #if UNITY_EDITOR

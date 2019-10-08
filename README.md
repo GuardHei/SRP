@@ -6,8 +6,8 @@ A customized forward+ render pipeline for Unity
 ## Planned Features
 1. Supports forward+ render path (Implemented)
 2. Supports tile-based rendering with transparent objects
-3. Supports realtime directional light\spot light\point light shadows
-4. Supports cascaded shadowmap (Implemented)
+3. Supports realtime directional light (Implemented) \ spot light (Implemented) \ point light shadows
+4. Supports cascaded shadowmap for directional light (Implemented)
 5. Supports volumetric lighting
 
 ## Possible Features
@@ -19,20 +19,20 @@ A customized forward+ render pipeline for Unity
 1. DX11+ on Windows
 2. Metal on Mac
 3. OpenGL 4.5+ on Linux
+PS: Graphic APIs that support Compute Shaders. Geometry shader is not necessary.
 
 ## Docs
 Not ready yet
 
 ## Previews
-![Still Under Development.png](https://i.loli.net/2019/09/14/OvhElRIoYqS32U7.png)
+![Still Under Development.png](https://i.loli.net/2019/10/08/IryF3zL2GwCnMxd.png)
 
 Parameters
 + 2k resolution
-+ 4k shadowmap resolution
 + 59 point lights
-+ 20 spot lights
-+ 1 directional light
-+ 800+ fps
++ 22 spot lights, 2 of them have soft shadows, 1k resolution
++ 1 directional light with soft shadow, 4 cascades, 2k resolution
++ 586 fps
 
 Configs
 + MacBook Pro (15-inch, 2017)
