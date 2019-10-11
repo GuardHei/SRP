@@ -237,7 +237,7 @@ float SpotSoftShadow(float3 shadowPos, uint index) {
     return attenuation;
 }
 
-float DefaultSpotShadow(uint index, float3 worldPos) {
+float DefaultSpotShadow(float3 worldPos, uint index) {
 #if !defined(_SPOT_LIGHT_SHADOWS)
     return 1;
 #else

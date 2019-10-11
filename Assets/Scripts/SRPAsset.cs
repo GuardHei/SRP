@@ -423,7 +423,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			}
 		}
 
-		if (@params.sunlightParams.shadowOn) {
+		if (@params.sunlightParams.shadowOn && sunlight) {
 			_currentBuffer.EnableShaderKeyword(ShaderManager.SUNLIGHT_SHADOWS);
 			RenderCascadedDirectionalShadow(context, cull, sunlightIndex, sunlight, cullingParameters.shadowDistance);
 		} else _currentBuffer.DisableShaderKeyword(ShaderManager.SUNLIGHT_SHADOWS);

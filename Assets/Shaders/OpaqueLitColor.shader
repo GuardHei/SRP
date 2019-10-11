@@ -73,7 +73,7 @@
                 [loop]
                 for (uint i = 0; i < pointLightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
                 [loop]
-                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1)) * DefaultSpotShadow(i, input.worldPos); 
+                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1)) * DefaultSpotShadow(input.worldPos, i); 
                 return float4(litColor * color, 1);
 
             }
