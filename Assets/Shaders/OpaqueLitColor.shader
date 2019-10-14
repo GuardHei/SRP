@@ -67,15 +67,25 @@
 
                 uint2 lightTextureIndex = screenIndex / 16;
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
+                uint3 lightIndex = lightCountIndex;
                 uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
                 uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
                 float3 litColor = DefaultDirectionalLit(normal) * DefaultCascadedDirectionalShadow(input.worldPos);
                 [loop]
-                for (uint i = 0; i < pointLightCount; ++i) litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
-                [loop]
-                for (i = 0; i < spotLightCount; ++i) litColor += DefaultSpotLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1)) * DefaultSpotShadow(input.worldPos, i); 
-                return float4(litColor * color, 1);
+                for (uint i = 0; i < pointLightCount; ++i) {
+                    lightIndex.z += 1;
+                    litColor += DefaultPointLit(input.worldPos, normal, uint3(lightTextureIndex, i + 1));
+                }
 
+                lightIndex = lightCountIndex;
+
+                [loop]
+                for (i = 0; i < spotLightCount; ++i) {
+                    lightIndex.z += 1;
+                    litColor += DefaultSpotLit(input.worldPos, normal, lightIndex) * DefaultSpotShadow(input.worldPos, lightIndex);
+                }
+
+                return float4(litColor * color, 1);
             }
 
 		    ENDHLSL
