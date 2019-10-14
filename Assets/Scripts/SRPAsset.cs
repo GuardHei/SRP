@@ -386,11 +386,12 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		ExecuteCurrentBuffer(context);
 		
 		var allLights = cull.visibleLights;
+		var lightIndexMap = cull.GetLightIndexMap(Allocator.Temp);
 		
 		var sunlightColor = new Vector4(0, 0, 0);
 		var sunlightDirection = new Vector4(0, 0, 0);
 
-		if (sunlight) {
+		if (sunlight.Exists()) {
 			sunlightDirection = sunlight.transform.localToWorldMatrix.GetDirectionFromLocalTransform();
 			sunlightColor = sunlight.color * sunlight.intensity;
 		}
@@ -418,12 +419,12 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 					if (allLights[i].light.shadows != LightShadows.None) spotLightShadowCount++;
 					break;
 				case LightType.Directional:
-					if (allLights[i].light == sunlight) sunlightIndex = i;
+					if (allLights[i].light == sunlight) sunlightIndex = lightIndexMap[i];
 					break;
 			}
 		}
 
-		if (@params.sunlightParams.shadowOn && sunlight) {
+		if (@params.sunlightParams.shadowOn && sunlight.Exists()) {
 			_currentBuffer.EnableShaderKeyword(ShaderManager.SUNLIGHT_SHADOWS);
 			RenderCascadedDirectionalShadow(context, cull, sunlightIndex, sunlight, cullingParameters.shadowDistance);
 		} else _currentBuffer.DisableShaderKeyword(ShaderManager.SUNLIGHT_SHADOWS);
@@ -470,13 +471,13 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 						cone = new Cone(visibleLight.localToWorldMatrix.GetPositionFromLocalTransform(), spotLightAngle, visibleLight.range, new float3(spotLightDirection.x, spotLightDirection.y, spotLightDirection.z)),
 						matrixVP = originalSpotLight.shadowMatrixOverride * visibleLight.localToWorldMatrix.inverse,
 						innerAngle = Mathf.Deg2Rad * originalSpotLight.innerSpotAngle * .5f,
-						nearClip = originalSpotLight.shadowNearPlane,
+						nearClip = originalSpotLight.shadowNearPlane
 					};
 
 					if (originalSpotLight.shadows != LightShadows.None) {
 						spotLight.shadowStrength = originalSpotLight.shadowStrength;
 						spotLight.shadowIndex = spotLightShadowIndex + 1;
-						spotLightIndices[spotLightShadowIndex] = i;
+						spotLightIndices[spotLightShadowIndex] = lightIndexMap[i];
 						shadowSpotLights[spotLightShadowIndex] = originalSpotLight;
 						spotLightShadowIndex++;
 					} else spotLight.shadowIndex = 0;

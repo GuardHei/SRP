@@ -23,4 +23,6 @@ public static class Extensions {
 		var position = transform.GetColumn(3);
 		return new Vector3(position.x, position.y, position.z);
 	}
+
+	public static bool Exists(this Light light) => light != null && light.isActiveAndEnabled;
 }

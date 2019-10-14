@@ -244,6 +244,7 @@ float DefaultSpotShadow(float3 worldPos, uint index) {
     SpotLight light = _SpotLightBuffer[index];
     uint shadowIndex = light.shadowIndex;
     if (shadowIndex == 0) return 1;
+    // else return 0;
     shadowIndex--;
     float4 shadowPos = mul(spotLight_InverseVPBuffer[shadowIndex], float4(worldPos, 1));
     shadowPos.xyz /= shadowPos.w;
