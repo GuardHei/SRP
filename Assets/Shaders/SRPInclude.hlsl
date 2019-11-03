@@ -32,13 +32,17 @@ Texture3D<uint> _CulledSpotLightTexture;
 TEXTURE2D(_OpaqueDepthTexture);
 SAMPLER(sampler_OpaqueDepthTexture);
 
-TEXTURE2D(_SunlightShadowmap);
+TEXTURE2D_SHADOW(_SunlightShadowmap);
 SAMPLER_CMP(sampler_SunlightShadowmap);
 
-TEXTURE2D_ARRAY(_SunlightShadowmapArray);
+TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray);
 SAMPLER_CMP(sampler_SunlightShadowmapArray);
 
-TEXTURE2D_ARRAY(_SpotLightShadowmapArray);
+TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray);
+// SAMPLER_CMP(sampler_PointLightShadowmapArray);
+SAMPLER(sampler_PointLightShadowmapArray);
+
+TEXTURE2D_ARRAY_SHADOW(_SpotLightShadowmapArray);
 SAMPLER_CMP(sampler_SpotLightShadowmapArray);
 
 /*
@@ -70,8 +74,8 @@ CBUFFER_START(Shadow)
     float _ShadowNormalBias;
     float _PointLightShadowmap_ST;
     float _SpotLightShadowmap_ST;
-    float4 _SpotLightShadowmapSize;
     float4 _PointLightShadowmapSize;
+    float4 _SpotLightShadowmapSize;
 CBUFFER_END
 
 CBUFFER_START(Sunlight)
@@ -223,6 +227,36 @@ float DefaultCascadedDirectionalShadow(float3 worldPos) {
 #endif
 }
 
+inline float PointHardShadow(float4 shadowPos, float index) {
+    return 1;
+    // return SAMPLE_TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray, sampler_PointLightShadowmapArray, shadowPos, index);
+    return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
+    return _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
+}
+
+float PointSoftShadow(float4 shadowPos, float index) {
+    return PointHardShadow(shadowPos, index);
+}
+
+float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 lightIndex) {
+#if !defined(_POINT_LIGHT_SHADOWS)
+    return 1;
+#else
+    PointLight light = _PointLightBuffer[_CulledPointLightTexture[lightIndex]];
+    uint shadowIndex = light.shadowIndex;
+    if (shadowIndex == 0) return 1;
+    shadowIndex--;
+    lightDir *= float3(-1, -1, 1);
+    float4 shadowPos = float4(lightDir, depth);
+#if !defined(_POINT_LIGHT_SOFT_SHADOWS)
+    float shadowAttenuation = PointHardShadow(shadowPos, shadowIndex);
+#else
+    float shadowAttenuation = PointSoftShadow(shadowPos, shadowIndex);
+#endif
+    return lerp(1, shadowAttenuation, light.shadowStrength);
+#endif
+}
+
 inline float SpotHardShadow(float3 shadowPos, uint index) {
     return SAMPLE_TEXTURE2D_ARRAY_SHADOW(_SpotLightShadowmapArray, sampler_SpotLightShadowmapArray, shadowPos, index);
 }
@@ -256,32 +290,34 @@ float DefaultSpotShadow(float3 worldPos, uint3 lightIndex) {
 #endif
 }
 
-inline float3 DefaultDirectionalLit(float3 worldNormal) {
+inline float3 DefaultDirectionalLit(float3 worldPos, float3 worldNormal) {
     float diffuse = saturate(dot(worldNormal, _SunlightDirection));
-    return diffuse * _SunlightColor;
+    return diffuse * _SunlightColor * DefaultCascadedDirectionalShadow(worldPos);
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
     PointLight light = _PointLightBuffer[_CulledPointLightTexture[lightIndex]];
-    float3 lightDiff = light.sphere.xyz - worldPos;
-    float3 lightDiffDot = dot(lightDiff, lightDiff);
-    float3 lightDir = normalize(lightDiff);
-    float distanceSqr = max(lightDiffDot, .00001);
-    float rangeFade = lightDiffDot * 1.0 / max(light.sphere.w * light.sphere.w, .00001);
+    float3 lightDir = light.sphere.xyz - worldPos;
+    float lightDist = length(lightDir);
+    lightDir /= lightDist;
+    float distanceSqr = lightDist * lightDist;
+    float rangeFade = distanceSqr * 1.0 / max(light.sphere.w * light.sphere.w, .00001);
     rangeFade = saturate(1.0 - rangeFade * rangeFade);
     rangeFade *= rangeFade;
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade / distanceSqr;
-    return diffuse * light.color;
+    float radius = light.sphere.w;
+    // return DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
+    return diffuse * light.color * DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
 }
 
 inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
     SpotLight light = _SpotLightBuffer[_CulledSpotLightTexture[lightIndex]];
-    float3 lightDiff = light.cone.vertex.xyz - worldPos;
-    float3 lightDiffDot = dot(lightDiff, lightDiff);
-    float3 lightDir = normalize(lightDiff);
-    float distanceSqr = max(lightDiffDot, .00001);
-    float rangeFade = lightDiffDot * 1.0 / max(light.cone.height * light.cone.height, .00001);
+    float3 lightDir = light.cone.vertex - worldPos;
+    float lightDist = length(lightDir);
+    lightDir /= lightDist;
+    float distanceSqr = lightDist * lightDist;
+    float rangeFade = distanceSqr * 1.0 / max(light.cone.height * light.cone.height, .00001);
     rangeFade = saturate(1.0 - rangeFade * rangeFade);
     rangeFade *= rangeFade;
     float cosAngle = cos(light.cone.angle);
@@ -290,7 +326,7 @@ inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightInd
     spotFade = saturate((spotFade - cosAngle) * angleRangeInv);
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade * spotFade / distanceSqr;
-    return diffuse * light.color;
+    return diffuse * light.color * DefaultSpotShadow(worldPos, lightIndex);
 }
 
 //////////////////////////////////////

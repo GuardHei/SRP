@@ -33,11 +33,10 @@ public class ShaderManager {
 	public static readonly int SPOT_LIGHT_COUNT = Shader.PropertyToID("_SpotLightCount");
 	public static readonly int POINT_LIGHT_BUFFER = Shader.PropertyToID("_PointLightBuffer");
 	public static readonly int SPOT_LIGHT_BUFFER = Shader.PropertyToID("_SpotLightBuffer");
-	public static readonly int POINT_LIGHT_SHADOWMAP_SIZE = Shader.PropertyToID("_PointlightShadowmapSize");
+	public static readonly int POINT_LIGHT_SHADOWMAP_SIZE = Shader.PropertyToID("_PointLightShadowmapSize");
 	public static readonly int POINT_LIGHT_SHADOWMAP_ARRAY = Shader.PropertyToID("_PointLightShadowmapArray");
 	public static readonly int SPOT_LIGHT_SHADOWMAP_SIZE = Shader.PropertyToID("_SpotLightShadowmapSize");
 	public static readonly int SPOT_LIGHT_SHADOWMAP_ARRAY = Shader.PropertyToID("_SpotLightShadowmapArray");
-	public static readonly int POINT_LIGHT_INVERSE_VP_BUFFER = Shader.PropertyToID("pointLight_InverseVPBuffer");
 	public static readonly int SPOT_LIGHT_INVERSE_VP_BUFFER = Shader.PropertyToID("spotLight_InverseVPBuffer");
 
 	// Keywords

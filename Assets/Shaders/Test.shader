@@ -24,7 +24,7 @@
             ImageVertexOutput Vertex(ImageVertexInput input) {
                 ImageVertexOutput output;
                 output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-                output.uv = TRANSFORM_TEX(input.uv, _SunlightShadowmap);
+                output.uv = input.uv;
                 return output;
             }
 
@@ -34,7 +34,7 @@
                 return c;
                 float t = c.r + c.g + c.b;
                 float a = 1 - c.r;
-                return float4(a, a , a, 1);
+                // return float4(a, a , a, 1);
                 
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * input.uv.x / 16.0, _ScreenParams.y * input.uv.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];

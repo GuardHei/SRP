@@ -11,14 +11,16 @@ struct Cone {
 
 struct PointLight {
     float3 color;
+    float shadowStrength;
     float4 sphere;
+    uint shadowIndex;
 };
 
 struct SpotLight {
     float3 color;
     float shadowStrength;
     Cone cone;
-    float4x4 matrixVP;
+    // float4x4 matrixVP;
     float smallAngle;
     float nearClip;
     uint shadowIndex;

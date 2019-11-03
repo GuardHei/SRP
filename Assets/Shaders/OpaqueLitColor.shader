@@ -37,7 +37,6 @@
                 float4 clipPos : SV_POSITION;
                 float4 worldPos : TEXCOORD0;
                 float3 viewDir : TEXCOORD1;
-                float4 screenPos : TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -52,15 +51,13 @@
                 output.worldPos = GetWorldPosition(input.pos.xyz);
                 output.clipPos = GetClipPosition(output.worldPos);
                 output.viewDir = normalize(WorldSpaceViewDirection(output.worldPos));
-                output.screenPos = ComputeScreenPosition(output.clipPos);
                 return output;
             }
 
-            float4 Fragment(VertexOutput input) : SV_TARGET {
+            float4 Fragment(VertexOutput input, float4 screenPos : SV_POSITION) : SV_TARGET {
                 UNITY_SETUP_INSTANCE_ID(input);
-
-                float2 screenUV = input.screenPos.xy / input.screenPos.w;
-                uint2 screenIndex = uint2(_ScreenParams.x * screenUV.x, _ScreenParams.y * screenUV.y);
+                
+                uint2 screenIndex = screenPos.xy;
                 
                 float3 color = UNITY_ACCESS_INSTANCED_PROP(PerInstance, _Color).rgb;
                 float3 normal = _OpaqueNormalTexture[screenIndex];
@@ -70,7 +67,7 @@
                 uint3 lightIndex = lightCountIndex;
                 uint pointLightCount = _CulledPointLightTexture[lightCountIndex];
                 uint spotLightCount = _CulledSpotLightTexture[lightCountIndex];
-                float3 litColor = DefaultDirectionalLit(normal) * DefaultCascadedDirectionalShadow(input.worldPos);
+                float3 litColor = DefaultDirectionalLit(input.worldPos, normal);
                 [loop]
                 for (uint i = 0; i < pointLightCount; ++i) {
                     lightIndex.z += 1;
@@ -82,7 +79,7 @@
                 [loop]
                 for (i = 0; i < spotLightCount; ++i) {
                     lightIndex.z += 1;
-                    litColor += DefaultSpotLit(input.worldPos, normal, lightIndex) * DefaultSpotShadow(input.worldPos, lightIndex);
+                    litColor += DefaultSpotLit(input.worldPos, normal, lightIndex);
                 }
 
                 return float4(litColor * color, 1);

@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Test
-  m_Shader: {fileID: 4800000, guid: 6d5c8889edb074179920871963236df0, type: 3}
+  m_Shader: {fileID: 4800000, guid: 1f3b063bbb210416b864c61edc6102fd, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -60,9 +60,11 @@ Material:
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _Face: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _Index: 0
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1

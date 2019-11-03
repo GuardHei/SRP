@@ -2,6 +2,7 @@
   "dependencies": {
     "com.unity.ads": "2.0.8",
     "com.unity.analytics": "3.3.2",
+    "com.unity.burst": "1.1.2",
     "com.unity.cinemachine": "2.3.3",
     "com.unity.collab-proxy": "1.2.16",
     "com.unity.collections": "0.0.9-preview.19",
@@ -10,7 +11,8 @@
     "com.unity.package-manager-ui": "2.2.0",
     "com.unity.postprocessing": "2.1.6",
     "com.unity.purchasing": "2.0.6",
-    "com.unity.render-pipelines.core": "6.9.0",
+    "com.unity.quicksearch": "1.4.1",
+    "com.unity.render-pipelines.core": "6.9.1",
     "com.unity.textmeshpro": "2.0.1",
     "com.unity.timeline": "1.1.0",
     "com.unity.ugui": "1.0.0",
