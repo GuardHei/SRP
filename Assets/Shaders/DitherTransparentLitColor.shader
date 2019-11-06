@@ -1,12 +1,15 @@
-﻿Shader "SRP/OpaqueLitColor" {
+﻿Shader "SRP/DitherTransparentLitColor" {
 
     Properties {
 	    _Color("Color", Color) = (0, 0, 0, 1)
+        _AlphaTexture("Alpha", 2D) = "gray" { }
 	}
     
     SubShader {
 
-        UsePass "SRP/OpaqueDepthNormal/DEPTHNORMAL"
+        UsePass "SRP/DitherTransparentDepthNormal/DEPTHNORMAL"
+
+        UsePass "SRP/DitherTransparentDepthNormal/SHADOWCASTER"
 
         Pass {
 
@@ -87,27 +90,6 @@
             }
 
 		    ENDHLSL
-        }
-
-        Pass {
-
-            Tags { 
-                "LightMode"="ShadowCaster"
-            }
-
-            HLSLPROGRAM
-			
-			#pragma target 3.5
-
-            #pragma vertex ShadowCasterVertex
-			#pragma fragment ShadowCasterFragment
-			
-			#pragma multi_compile_instancing
-			#pragma instancing_options assumeuniformscaling
-
-            #include "SRPInclude.hlsl"
-
-			ENDHLSL
         }
     }
 }

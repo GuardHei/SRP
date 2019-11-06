@@ -18,6 +18,17 @@
 
 #include "ComputeUtils.hlsl"
 
+static const float DITHER_THRESHOLDS_64[64] = {
+    1, 33, 9, 41, 3, 35, 11, 43, 
+    49, 17, 57, 25, 51, 19, 59, 27,
+    13, 45, 5, 37, 15, 47, 7, 39,
+    61, 29, 53, 21, 63, 31, 55, 23,
+    4, 36, 12, 44, 2, 34, 10, 42,
+    52, 20, 60, 28, 50, 18, 58, 26,
+    16, 48, 8, 40, 14, 48, 6, 38,
+    64, 32, 56, 24, 62, 30, 54, 22
+};
+
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
 
@@ -36,8 +47,9 @@ TEXTURE2D_SHADOW(_SunlightShadowmap);
 SAMPLER_CMP(sampler_SunlightShadowmap);
 
 TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray);
-SAMPLER_CMP(sampler_SunlightShadowmapArray);
+SAMPLER_CMP(sampler_SunlightShadowmapArray); 
 
+// TEXTURECUBE_SHADOW(_PointLightShadowmapArray);
 TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray);
 // SAMPLER_CMP(sampler_PointLightShadowmapArray);
 SAMPLER(sampler_PointLightShadowmapArray);
@@ -155,6 +167,15 @@ inline float3 WorldSpaceViewDirection(float3 worldPos) {
     return _WorldSpaceCameraPos.xyz - worldPos;
 }
 
+inline float isDithered64(uint2 screenIndex, float alpha) {
+    uint index = (screenIndex.x % 8) * 8 + screenIndex.y % 8;
+    return alpha - DITHER_THRESHOLDS_64[index] / 65.0;
+}
+
+inline void ditherClip64(uint2 screenIndex, float alpha) {
+    clip(isDithered64(screenIndex, alpha));
+}
+
 ////////////////////////
 // Lighting Functions //
 ////////////////////////
@@ -230,6 +251,7 @@ float DefaultCascadedDirectionalShadow(float3 worldPos) {
 inline float PointHardShadow(float4 shadowPos, float index) {
     return 1;
     // return SAMPLE_TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray, sampler_PointLightShadowmapArray, shadowPos, index);
+    // return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, shadowPos.xyz);
     return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
     return _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
 }
@@ -246,7 +268,7 @@ float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 li
     uint shadowIndex = light.shadowIndex;
     if (shadowIndex == 0) return 1;
     shadowIndex--;
-    lightDir *= float3(-1, -1, 1);
+    // lightDir *= float3(-1, -1, 1);
     float4 shadowPos = float4(lightDir, depth);
 #if !defined(_POINT_LIGHT_SOFT_SHADOWS)
     float shadowAttenuation = PointHardShadow(shadowPos, shadowIndex);
@@ -308,7 +330,7 @@ inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIn
     diffuse *= rangeFade / distanceSqr;
     float radius = light.sphere.w;
     // return DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
-    return diffuse * light.color * DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
+    return diffuse * light.color * DefaultPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
 }
 
 inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {

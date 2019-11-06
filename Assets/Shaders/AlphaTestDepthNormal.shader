@@ -59,8 +59,8 @@
             }
 
             float4 AlphaTestDepthFragment(AlphaTestDepthVertexOutput input) : SV_TARGET {
-                float c = _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
-                clip(c - _AlphaTestDepthCutoff);
+                float alpha = _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
+                clip(alpha - _AlphaTestDepthCutoff);
                 float3 normal = normalize(input.normal);
                 return float4(normal, 1);
             }

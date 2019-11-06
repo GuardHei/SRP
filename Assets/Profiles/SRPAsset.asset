@@ -22,7 +22,7 @@ MonoBehaviour:
     depthFlipMaterial: {fileID: 2100000, guid: bb0fa55cc30d34bbeb693606e50c7b38, type: 2}
     sunlightParams:
       shadowOn: 1
-      shadowResolution: 2048
+      shadowResolution: 4096
       shadowCascades: 4
       shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
       shadowDistance: 100
@@ -36,7 +36,7 @@ MonoBehaviour:
       softShadow: 1
       shadowResolution: 1024
       maxShadowCount: 10
-    testMaterialOn: 1
+    testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
     depthBoundOn: 0
     gizmosOn: 0

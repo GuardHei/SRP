@@ -50,13 +50,12 @@ public class ShaderManager {
 	// Custom Render Queues
 	public const int OPAQUE_RENDER_QUEUE = 2000;
 	public const int ALPHA_TEST_RENDER_QUEUE = 2450;
-	public const int LAST_OPAQUE_RENDER_QUEUE = 2500;
-	public const int DITHER_TRANSPARENT_QUEUE = 2950;
+	public const int DITHER_TRANSPARENT_RENDER_QUEUE = 2700;
 	public const int TRANSPARENT_QUEUE = 3000;
 	
 	// Render Queue Ranges
 	public static readonly RenderQueueRange OPAQUE_RENDER_QUEUE_RANGE = new RenderQueueRange(OPAQUE_RENDER_QUEUE, ALPHA_TEST_RENDER_QUEUE - 1);
 	public static readonly RenderQueueRange ALPHA_TEST_QUEUE_RANGE = new RenderQueueRange(ALPHA_TEST_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
-	public static readonly RenderQueueRange DITHER_TRANSPARENT_RENDER_QUEUE = new RenderQueueRange(DITHER_TRANSPARENT_QUEUE, TRANSPARENT_QUEUE - 1);
+	public static readonly RenderQueueRange DITHER_TRANSPARENT_QUEUE_RENDER = new RenderQueueRange(DITHER_TRANSPARENT_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
 	public static readonly RenderQueueRange NON_TRANSPARENT_RENDER_QUEUE = new RenderQueueRange(OPAQUE_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
 }

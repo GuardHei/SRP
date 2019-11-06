@@ -224,6 +224,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 	private void RenderPointLightShadow(ScriptableRenderContext context, CullingResults cull, int shadowLightCount, Light[] shadowLights, int[] shadowLightIndices) {
 		var shadowSlices = shadowLightCount * 6;
+		// _currentBuffer.GetTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
 		_currentBuffer.GetTemporaryRTArray(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, shadowSlices, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
 		// var shadowLightInverseVPArray = new Matrix4x4[shadowSlices];
 		/*
@@ -241,7 +242,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 			for (var j = 0; j < 6; j++) {
 				var shadowSlice = i * 6 + j;
-				ResetRenderTarget(_pointLightShadowmapArrayId, CubemapFace.Unknown, shadowSlice, true, false, 1, Color.black);
+				ResetRenderTarget(_pointLightShadowmapArrayId, CubemapFace.Unknown, shadowSlice, true, true, 1, Color.black);
 				if (!cull.ComputePointShadowMatricesAndCullingPrimitives(shadowLightIndices[i], (CubemapFace) j, 0, out var viewMatrix, out var projectionMatrix, out var splitData)) {
 					ExecuteCurrentBuffer(context);
 					continue;
@@ -273,6 +274,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// _currentBuffer.SetGlobalBuffer(ShaderManager.POINT_LIGHT_INVERSE_VP_BUFFER, _pointLightInverseVPBuffer);
 		_currentBuffer.SetGlobalVector(ShaderManager.POINT_LIGHT_SHADOWMAP_SIZE, new Vector4(inverseShadowmapSize, inverseShadowmapSize, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution));
+		// _currentBuffer.SetGlobalTexture(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY, _pointLightShadowmapArrayId);
 		
 		if (@params.pointLightParams.softShadow) _currentBuffer.EnableShaderKeyword(ShaderManager.POINT_LIGHT_SOFT_SHADOWS);
 		else _currentBuffer.DisableShaderKeyword(ShaderManager.POINT_LIGHT_SOFT_SHADOWS);
@@ -408,7 +410,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		context.DrawRenderers(cull, ref depthNormalDrawSettings, ref filterSettings);
 		
 		//todo 渲染Dither Transparent的Stencil
-		filterSettings.renderQueueRange = ShaderManager.DITHER_TRANSPARENT_RENDER_QUEUE;
+		// filterSettings.renderQueueRange = ShaderManager.DITHER_TRANSPARENT_RENDER_QUEUE;
 
 		var depthBoundTextureWidth = pixelWidth / @params.depthTileResolution;
 		var depthBoundTextureHeight = pixelHeight / @params.depthTileResolution;
@@ -612,7 +614,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		// todo 渲染Dither Transparent
 		sortingSettings.criteria = SortingCriteria.CommonTransparent;
-		filterSettings.renderQueueRange = ShaderManager.DITHER_TRANSPARENT_RENDER_QUEUE;
+		filterSettings.renderQueueRange = ShaderManager.ALPHA_TEST_QUEUE_RANGE;
 		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
 		
 		// 将颜色缓冲输出到当前照相机渲染目标，一般是屏幕
