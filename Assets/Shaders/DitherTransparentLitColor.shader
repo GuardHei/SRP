@@ -9,6 +9,8 @@
 
         UsePass "SRP/DitherTransparentDepthNormal/DEPTHNORMAL"
 
+        UsePass "SRP/DitherTransparentStencil/STENCIL"
+
         UsePass "SRP/DitherTransparentDepthNormal/SHADOWCASTER"
 
         Pass {
@@ -43,9 +45,9 @@
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
-            UNITY_INSTANCING_BUFFER_START(PerInstance)
+            UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
                 UNITY_DEFINE_INSTANCED_PROP(float3, _Color)
-            UNITY_INSTANCING_BUFFER_END(PerInstance)
+            UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
             VertexOutput Vertex(BasicVertexInput input) {
                 VertexOutput output;
@@ -62,7 +64,7 @@
 
                 uint2 screenIndex = screenPos.xy;
 
-                float3 color = UNITY_ACCESS_INSTANCED_PROP(PerInstance, _Color).rgb;
+                float3 color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Color).rgb;
                 float3 normal = _OpaqueNormalTexture[screenIndex];
 
                 uint2 lightTextureIndex = screenIndex / 16;

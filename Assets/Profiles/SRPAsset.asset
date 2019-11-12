@@ -19,7 +19,6 @@ MonoBehaviour:
     depthTileResolution: 16
     alphaTestDepthCutoff: 0.001
     tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
-    depthFlipMaterial: {fileID: 2100000, guid: bb0fa55cc30d34bbeb693606e50c7b38, type: 2}
     sunlightParams:
       shadowOn: 1
       shadowResolution: 4096
@@ -36,6 +35,12 @@ MonoBehaviour:
       softShadow: 1
       shadowResolution: 1024
       maxShadowCount: 10
+    ditherTransparentParams:
+      blurOn: 1
+      downSamples: 1
+      iteration: 2
+      blurRadius: 0.4
+      blurMaterial: {fileID: 2100000, guid: 91224c5cbba514b418a1d6cbae56ea58, type: 2}
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
     depthBoundOn: 0

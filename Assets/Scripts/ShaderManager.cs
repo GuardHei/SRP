@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -5,6 +6,8 @@ public class ShaderManager {
 
 	// Properties
 	public static readonly int COLOR_BUFFER = Shader.PropertyToID("_ColorBuffer");
+	public static readonly int TEMPORARY_TEXTURE_1 = Shader.PropertyToID("_TemporaryTexture1");
+	public static readonly int TEMPORARY_TEXTURE_2 = Shader.PropertyToID("_TemporaryTexture2");
 	public static readonly int OPAQUE_DEPTH_TEXTURE = Shader.PropertyToID("_OpaqueDepthTexture");
 	public static readonly int OPAQUE_NORMAL_TEXTURE = Shader.PropertyToID("_OpaqueNormalTexture");
 	public static readonly int DEPTH_BOUND_TEXTURE = Shader.PropertyToID("_DepthBoundTexture");
@@ -14,8 +17,10 @@ public class ShaderManager {
 	public static readonly int TILE_NUMBER = Shader.PropertyToID("_TileNumber");
 	public static readonly int CAMERA_FORWARD = Shader.PropertyToID("_CameraForward");
 	public static readonly int CAMERA_POSITION = Shader.PropertyToID("_CameraPosition");
+	public static readonly int STENCIL_REF = Shader.PropertyToID("_StencilRef");
 	public static readonly int Z_BUFFER_PARAMS = Shader.PropertyToID("_ZBufferParams");
 	public static readonly int ALPHA_TEST_DEPTH_CUTOFF = Shader.PropertyToID("_AlphaTestDepthCutoff");
+	public static readonly int BLUR_RADIUS = Shader.PropertyToID("_BlurRadius");
 	public static readonly int SHADOW_BIAS = Shader.PropertyToID("_ShadowBias");
 	public static readonly int SHADOW_NORMAL_BIAS = Shader.PropertyToID("_ShadowNormalBias");
 	public static readonly int SUNLIGHT_COLOR = Shader.PropertyToID("_SunlightColor");
@@ -56,6 +61,6 @@ public class ShaderManager {
 	// Render Queue Ranges
 	public static readonly RenderQueueRange OPAQUE_RENDER_QUEUE_RANGE = new RenderQueueRange(OPAQUE_RENDER_QUEUE, ALPHA_TEST_RENDER_QUEUE - 1);
 	public static readonly RenderQueueRange ALPHA_TEST_QUEUE_RANGE = new RenderQueueRange(ALPHA_TEST_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
-	public static readonly RenderQueueRange DITHER_TRANSPARENT_QUEUE_RENDER = new RenderQueueRange(DITHER_TRANSPARENT_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
+	public static readonly RenderQueueRange DITHER_TRANSPARENT_QUEUE_RANGE = new RenderQueueRange(DITHER_TRANSPARENT_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
 	public static readonly RenderQueueRange NON_TRANSPARENT_RENDER_QUEUE = new RenderQueueRange(OPAQUE_RENDER_QUEUE, TRANSPARENT_QUEUE - 1);
 }

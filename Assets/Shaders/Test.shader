@@ -19,7 +19,6 @@
 			#pragma fragment Fragment
 
 			#include "SRPInclude.hlsl"
-            #include "ComputeUtils.hlsl"
 
             ImageVertexOutput Vertex(ImageVertexInput input) {
                 ImageVertexOutput output;

@@ -3,6 +3,7 @@
     Properties {
 	    _Index("Index", Int) = 0
         _Face("Face", Int) = 0
+        _MainTex ("Main Texture", 2D) = "" { } 
 	}
     
     SubShader {

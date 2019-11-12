@@ -35,10 +35,11 @@ StructuredBuffer<SpotLight> _SpotLightBuffer;
 StructuredBuffer<float4x4> pointLight_InverseVPBuffer;
 StructuredBuffer<float4x4> spotLight_InverseVPBuffer;
 
-Texture2D _OpaqueNormalTexture;
-
 Texture3D<uint> _CulledPointLightTexture;
 Texture3D<uint> _CulledSpotLightTexture;
+
+TEXTURE2D(_OpaqueNormalTexture);
+// SAMPLER(sampler_OpaqueNormalTexture);
 
 TEXTURE2D(_OpaqueDepthTexture);
 SAMPLER(sampler_OpaqueDepthTexture);
@@ -57,11 +58,6 @@ SAMPLER(sampler_PointLightShadowmapArray);
 TEXTURE2D_ARRAY_SHADOW(_SpotLightShadowmapArray);
 SAMPLER_CMP(sampler_SpotLightShadowmapArray);
 
-/*
-TEXTURE2D(_OpaqueNormalTexture);
-SAMPLER(sampler_OpaqueNormalTexture);
-*/
-
 CBUFFER_START(UnityPerFrame)
     float4x4 unity_MatrixVP;
     float4 _WorldSpaceCameraPos;
@@ -74,6 +70,9 @@ CBUFFER_END
 
 CBUFFER_START(UnityPerDraw)
     float4x4 unity_ObjectToWorld;
+    float4x4 unity_WorldToObject;
+    float4 unity_LODFade;
+    real4 unity_WorldTransformParams;
 CBUFFER_END
 
 CBUFFER_START(UnityPerMaterial)
@@ -356,6 +355,7 @@ inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightInd
 //////////////////////////////////////
 
 BasicVertexOutput UnlitVertex(BasicVertexInput input) {
+    UNITY_SETUP_INSTANCE_ID(input);
     BasicVertexOutput output;
 	output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
 	return output;
