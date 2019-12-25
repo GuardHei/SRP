@@ -15,6 +15,8 @@ MonoBehaviour:
   params:
     enableDynamicBatching: 1
     enableInstancing: 1
+    enableSRPBatching: 0
+    msaa: 1
     resolutionRatio: 0.5
     depthTileResolution: 16
     alphaTestDepthCutoff: 0.001
@@ -26,7 +28,7 @@ MonoBehaviour:
       shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
       shadowDistance: 100
     pointLightParams:
-      shadowOn: 1
+      shadowOn: 0
       softShadow: 0
       shadowResolution: 1024
       maxShadowCount: 10
@@ -36,12 +38,13 @@ MonoBehaviour:
       shadowResolution: 1024
       maxShadowCount: 10
     ditherTransparentParams:
-      blurOn: 1
+      blurOn: 0
       downSamples: 1
       iteration: 2
       blurRadius: 0.4
       blurMaterial: {fileID: 2100000, guid: 91224c5cbba514b418a1d6cbae56ea58, type: 2}
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
-    depthBoundOn: 0
+    depthBoundOn: 1
     gizmosOn: 0
+    testInt: 0

@@ -10,11 +10,6 @@
             "RenderType"="Opaque"
         }
 
-        Stencil {
-            Ref 1
-            Comp Never
-        }
-
         Pass {
 
             ZTest Always
@@ -36,9 +31,6 @@
                 float4 uv23 : TEXCOORD2;
                 float4 uv45 : TEXCOORD3;
             };
-
-            TEXTURE2D(_MainTex);
-            SAMPLER(sampler_MainTex);
 
             float _BlurRadius;
 
@@ -92,9 +84,6 @@
                 float4 uv45 : TEXCOORD3;
             };
 
-            TEXTURE2D(_MainTex);
-            SAMPLER(sampler_MainTex);
-
             float _BlurRadius;
 
             VertexOutput Vertex(ImageVertexInput input) {
@@ -130,19 +119,42 @@
             ZWrite Off
 			Cull Off
 
-            HLSLPROGRAM
-			#pragma target 3.5
+            Stencil {
+                Ref 1
+                Comp Equal
+                ReadMask 1
+            }
 
-			#pragma vertex ImageVertex
+            HLSLPROGRAM
+			#pragma target 5.0
+
+			#pragma vertex Vertex
 			#pragma fragment Fragment
 
 			#include "SRPInclude.hlsl"
 
-            TEXTURE2D(_MainTex);
-            SAMPLER(sampler_MainTex);
+            ImageVertexOutput Vertex(ImageVertexInput input) {
+                ImageVertexOutput output;
+                output.clipPos = float4(input.pos.xy, 0, 1);
+                output.uv = TransformTriangleVertexToUV(input.pos);
+                // output.clipPos = float4(input.pos.xy * 2.0 - 1.0, 0, 1);
+                // output.uv = input.uv;
+
+#if UNITY_UV_STARTS_AT_TOP
+                output.uv = output.uv * float2(1.0, -1.0) + float2(0.0, 1.0);
+#endif
+
+                output.uv = output.uv * _MainTex_ST.xy + _MainTex_ST.zw;
+
+                return output;
+            }
 
             float4 Fragment(ImageVertexOutput input) : SV_TARGET {
-                return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+                float2 uv = input.uv;
+                // uv.y = 1 - uv.y;
+                return float4(1, 0, 0, 1);
+                return SAMPLE_TEXTURE2D(_OpaqueDepthTexture, sampler_OpaqueDepthTexture, uv);
+                return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
             }
 
             ENDHLSL

@@ -19,7 +19,7 @@
 			Cull Off
 
             HLSLPROGRAM
-			#pragma target 3.5
+			#pragma target 5.0
 
 			#pragma vertex Vertex
 			#pragma fragment Fragment

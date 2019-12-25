@@ -8,6 +8,8 @@ public class ShaderManager {
 	public static readonly int COLOR_BUFFER = Shader.PropertyToID("_ColorBuffer");
 	public static readonly int TEMPORARY_TEXTURE_1 = Shader.PropertyToID("_TemporaryTexture1");
 	public static readonly int TEMPORARY_TEXTURE_2 = Shader.PropertyToID("_TemporaryTexture2");
+	public static readonly int BLIT_TEMPORARY_TEXTURE_1 = Shader.PropertyToID("_BlitTemporaryTexture1");
+	public static readonly int MAIN_TEXTURE = Shader.PropertyToID("_MainTex");
 	public static readonly int OPAQUE_DEPTH_TEXTURE = Shader.PropertyToID("_OpaqueDepthTexture");
 	public static readonly int OPAQUE_NORMAL_TEXTURE = Shader.PropertyToID("_OpaqueNormalTexture");
 	public static readonly int DEPTH_BOUND_TEXTURE = Shader.PropertyToID("_DepthBoundTexture");
@@ -39,6 +41,7 @@ public class ShaderManager {
 	public static readonly int POINT_LIGHT_BUFFER = Shader.PropertyToID("_PointLightBuffer");
 	public static readonly int SPOT_LIGHT_BUFFER = Shader.PropertyToID("_SpotLightBuffer");
 	public static readonly int POINT_LIGHT_SHADOWMAP_SIZE = Shader.PropertyToID("_PointLightShadowmapSize");
+	public static readonly int POINT_LIGHT_SHADOWMAP = Shader.PropertyToID("_PointLightShadowmap");
 	public static readonly int POINT_LIGHT_SHADOWMAP_ARRAY = Shader.PropertyToID("_PointLightShadowmapArray");
 	public static readonly int SPOT_LIGHT_SHADOWMAP_SIZE = Shader.PropertyToID("_SpotLightShadowmapSize");
 	public static readonly int SPOT_LIGHT_SHADOWMAP_ARRAY = Shader.PropertyToID("_SpotLightShadowmapArray");

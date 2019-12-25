@@ -18,19 +18,25 @@
             ZWrite Off
 			Cull Back
 
+            Stencil {
+                Ref 1
+                Comp Always
+                ReadMask 1
+            }
+
             HLSLPROGRAM
-			#pragma target 3.5
+			#pragma target 5.0
 
 			#pragma vertex Vertex
 			#pragma fragment Fragment
             #pragma multi_compile_instancing
-            #pragma multi_compile _ _SUNLIGHT_SHADOWS
-            #pragma multi_compile _ _SUNLIGHT_SOFT_SHADOWS
-            #pragma multi_compile _ _POINT_LIGHT_SHADOWS
-            #pragma multi_compile _ _POINT_LIGHT_SOFT_SHADOWS
-            #pragma multi_compile _ _SPOT_LIGHT_SHADOWS
-            #pragma multi_compile _ _SPOT_LIGHT_SOFT_SHADOWS
-
+            
+            #pragma multi_compile __ _SUNLIGHT_SHADOWS
+            #pragma multi_compile __ _SUNLIGHT_SOFT_SHADOWS
+            #pragma multi_compile __ _POINT_LIGHT_SHADOWS
+            #pragma multi_compile __ _POINT_LIGHT_SOFT_SHADOWS
+            #pragma multi_compile __ _SPOT_LIGHT_SHADOWS
+            #pragma multi_compile __ _SPOT_LIGHT_SOFT_SHADOWS
 			#include "SRPInclude.hlsl"
 
             struct VertexOutput {

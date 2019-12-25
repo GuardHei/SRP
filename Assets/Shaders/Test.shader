@@ -1,4 +1,8 @@
 ﻿Shader "SRP/Test" {
+
+    Properties {
+        _TestInt ("Test Int", Int) = -1
+    }
     
     SubShader {
 
@@ -13,12 +17,14 @@
 			Cull Off
 
             HLSLPROGRAM
-			#pragma target 3.5
+			#pragma target 5.0
 
 			#pragma vertex Vertex
 			#pragma fragment Fragment
 
 			#include "SRPInclude.hlsl"
+
+            float _TestInt;
 
             ImageVertexOutput Vertex(ImageVertexInput input) {
                 ImageVertexOutput output;
@@ -28,6 +34,24 @@
             }
 
             float4 Fragment(ImageVertexOutput input) : SV_TARGET {
+
+                if (_TestInt >= 0 && _TestInt <= 5) {
+                    float3 dir = float3(0, 0, 0);
+                    float a1 = (input.uv.x - .5) * 2;
+                    float a2 = (input.uv.y - .5) * 2;
+                    // return float4(input.uv, 0, 1);
+                    switch (_TestInt) {
+                        case 0: dir = float3(1, a1, a2); break;
+                        case 1: dir = float3(-1, a1, a2); break;
+                        case 2: dir = float3(a1, 1, a2); break;
+                        case 3: dir = float3(a1, -1, a2); break;
+                        case 4: dir = float3(a1, a2, 1); break;
+                        case 5: dir = float3(a1, a2, -1); break;
+                    }
+
+                    dir = normalize(dir);
+                    return SAMPLE_TEXTURECUBE(_PointLightShadowmap, sampler_PointLightShadowmap, dir) > 0;
+                }
 
                 float4 c = SAMPLE_TEXTURE2D(_OpaqueDepthTexture, sampler_OpaqueDepthTexture, input.uv);
                 return c;

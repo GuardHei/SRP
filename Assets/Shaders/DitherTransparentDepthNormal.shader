@@ -21,7 +21,7 @@
 
             HLSLPROGRAM
 
-            #pragma target 3.5
+            #pragma target 5.0
 
             #pragma vertex AlphaTestDepthVertex
             #pragma fragment AlphaTestDepthFragment
@@ -60,7 +60,7 @@
 
             float4 AlphaTestDepthFragment(AlphaTestDepthVertexOutput input, float4 screenPos : SV_POSITION) : SV_TARGET {
                 float alpha = _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
-                ditherClip64((uint2) screenPos.xy, alpha);
+                DitherClip64((uint2) screenPos.xy, alpha);
                 float3 normal = normalize(input.normal);
                 return float4(normal, 1);
             }
@@ -119,7 +119,7 @@
 
             float4 DitherTransparentShadowCasterFragment(DitherTransparentShadowCasterVertexOutput input, float4 screenPos : SV_POSITION) : SV_TARGET {
                 float alpha = _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
-                ditherClip64((uint2) screenPos.xy, alpha);
+                DitherClip64((uint2) screenPos.xy, alpha);
                 return float4(0, 0, 0, 0);
             }
 

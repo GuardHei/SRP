@@ -5,7 +5,7 @@
 		Pass {
 		    HLSLPROGRAM
 		    
-			#pragma target 3.5
+			#pragma target 5.0
 
 			#pragma multi_compile_instancing
 

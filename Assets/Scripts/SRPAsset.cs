@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -22,6 +21,8 @@ public sealed class SRPAsset : RenderPipelineAsset {
 public class SRPipelineParams {
 	public bool enableDynamicBatching = true;
 	public bool enableInstancing = true;
+	public bool enableSRPBatching = true;
+	public MSAASamples msaa = MSAASamples.None;
 	public float resolutionRatio = 1f;
 	public int depthTileResolution = 16;
 	public float alphaTestDepthCutoff = .001f;
@@ -34,6 +35,7 @@ public class SRPipelineParams {
 	public Material testMaterial;
 	public bool depthBoundOn;
 	public bool gizmosOn;
+	public int testInt;
 }
 
 [Serializable]
@@ -84,19 +86,21 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	public SRPipelineParams @params;
 	public Light sunlight;
 
-	private readonly RenderTargetIdentifier _colorBufferId = new RenderTargetIdentifier(ShaderManager.COLOR_BUFFER);
-	private readonly RenderTargetIdentifier _temporaryTexture1Id = new RenderTargetIdentifier(ShaderManager.TEMPORARY_TEXTURE_1);
-	private readonly RenderTargetIdentifier _temporaryTexture2Id = new RenderTargetIdentifier(ShaderManager.TEMPORARY_TEXTURE_2);
-	private readonly RenderTargetIdentifier _opaqueDepthId = new RenderTargetIdentifier(ShaderManager.OPAQUE_DEPTH_TEXTURE);
-	private readonly RenderTargetIdentifier _opaqueNormalId = new RenderTargetIdentifier(ShaderManager.OPAQUE_NORMAL_TEXTURE);
-	private readonly RenderTargetIdentifier _sunlightShadowmapId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP);
-	private readonly RenderTargetIdentifier _sunlightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP_ARRAY);
-	private readonly RenderTargetIdentifier _pointLightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY);
-	private readonly RenderTargetIdentifier _spotLightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SPOT_LIGHT_SHADOWMAP_ARRAY);
-	private readonly RenderTargetIdentifier _depthBoundId = new RenderTargetIdentifier(ShaderManager.DEPTH_BOUND_TEXTURE);
-	private readonly RenderTargetIdentifier _depthFrustumId = new RenderTargetIdentifier(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
-	private readonly RenderTargetIdentifier _culledPointLightId = new RenderTargetIdentifier(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
-	private readonly RenderTargetIdentifier _culledSpotLightId = new RenderTargetIdentifier(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);
+	public static readonly RenderTargetIdentifier ColorBufferId = new RenderTargetIdentifier(ShaderManager.COLOR_BUFFER);
+	public static readonly RenderTargetIdentifier TemporaryTexture1Id = new RenderTargetIdentifier(ShaderManager.TEMPORARY_TEXTURE_1);
+	public static readonly RenderTargetIdentifier TemporaryTexture2Id = new RenderTargetIdentifier(ShaderManager.TEMPORARY_TEXTURE_2);
+	public static readonly RenderTargetIdentifier BlitTemporaryTexture1Id = new RenderTargetIdentifier(ShaderManager.BLIT_TEMPORARY_TEXTURE_1);
+	public static readonly RenderTargetIdentifier OpaqueDepthId = new RenderTargetIdentifier(ShaderManager.OPAQUE_DEPTH_TEXTURE);
+	public static readonly RenderTargetIdentifier OpaqueNormalId = new RenderTargetIdentifier(ShaderManager.OPAQUE_NORMAL_TEXTURE);
+	public static readonly RenderTargetIdentifier SunlightShadowmapId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP);
+	public static readonly RenderTargetIdentifier SunlightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP_ARRAY);
+	public static readonly RenderTargetIdentifier PointLightShadowmapId = new RenderTargetIdentifier(ShaderManager.POINT_LIGHT_SHADOWMAP);
+	public static readonly RenderTargetIdentifier PointLightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY);
+	public static readonly RenderTargetIdentifier SpotLightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SPOT_LIGHT_SHADOWMAP_ARRAY);
+	public static readonly RenderTargetIdentifier DepthBoundId = new RenderTargetIdentifier(ShaderManager.DEPTH_BOUND_TEXTURE);
+	public static readonly RenderTargetIdentifier DepthFrustumId = new RenderTargetIdentifier(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
+	public static readonly RenderTargetIdentifier CulledPointLightId = new RenderTargetIdentifier(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
+	public static readonly RenderTargetIdentifier CulledSpotLightId = new RenderTargetIdentifier(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);
 
 	private ComputeBuffer _pointLightBuffer;
 	private ComputeBuffer _spotLightBuffer;
@@ -113,7 +117,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 	private void Init() {
 		GraphicsSettings.lightsUseLinearIntensity = true;
-		GraphicsSettings.useScriptableRenderPipelineBatching = true;
 		_reversedZBuffer = SystemInfo.usesReversedZBuffer;
 		current = this;
 		
@@ -129,11 +132,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	}
 	
 	protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
+		
+		GraphicsSettings.useScriptableRenderPipelineBatching = @params.enableSRPBatching;
+		
 		foreach (var camera in cameras) RenderScene(context, camera);
 	}
 
 	private void RenderDirectionalShadow(ScriptableRenderContext context, CullingResults cull, int sunlightIndex, Light sunlight) {
-		ResetRenderTarget(_sunlightShadowmapId, true, false, 1, Color.black);
+		ResetRenderTarget(SunlightShadowmapId, true, false, 1, Color.black);
 		
 		var shadowSettings = new ShadowDrawingSettings(cull, sunlightIndex);
 		if (!cull.ComputeDirectionalShadowMatricesAndCullingPrimitives(sunlightIndex, 0, 1, new Vector3(1, 0, 0), @params.sunlightParams.shadowResolution, sunlight.shadowNearPlane, out var viewMatrix, out var projectionMatrix, out var splitData)) {
@@ -181,7 +187,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_NORMAL_BIAS, sunlight.shadowNormalBias);
 
 		for (var i = 0; i < shadowCascades; i++) {
-			ResetRenderTarget(_sunlightShadowmapArrayId, CubemapFace.Unknown, i, true, false, 1, Color.black);
+			ResetRenderTarget(SunlightShadowmapArrayId, CubemapFace.Unknown, i, true, false, 1, Color.black);
 
 			if (!cull.ComputeDirectionalShadowMatricesAndCullingPrimitives(sunlightIndex, i, shadowCascades, @params.sunlightParams.shadowCascadeSplits, @params.sunlightParams.shadowResolution, sunlight.shadowNearPlane, out var viewMatrix, out var projectionMatrix, out var splitData)) {
 				ExecuteCurrentBuffer(context);
@@ -222,6 +228,39 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		ExecuteCurrentBuffer(context);
 	}
 
+	private void RenderPointLightShadow(ScriptableRenderContext context, CullingResults cull, Light light, int lightIndex) {
+		_currentBuffer.GetTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
+		_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_BIAS, light.shadowBias);
+		_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_NORMAL_BIAS, light.shadowNormalBias);
+		
+		var shadowSettings = new ShadowDrawingSettings(cull, lightIndex);
+		
+		for (var i = 0; i < 6; i++) {
+			ResetRenderTarget(PointLightShadowmapId, (CubemapFace) i, 0, true, true, 1, Color.black);
+			if (!cull.ComputePointShadowMatricesAndCullingPrimitives(lightIndex, (CubemapFace) i, 0, out var viewMatrix, out var projectionMatrix, out var splitData)) {
+				ExecuteCurrentBuffer(context);
+				continue;
+			}
+
+			shadowSettings.splitData = splitData;
+				
+			_currentBuffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+			
+			ExecuteCurrentBuffer(context);
+				
+			context.DrawShadows(ref shadowSettings);
+		}
+		
+		var inverseShadowmapSize = 1f / @params.pointLightParams.shadowResolution;
+		
+		_currentBuffer.SetGlobalVector(ShaderManager.POINT_LIGHT_SHADOWMAP_SIZE, new Vector4(inverseShadowmapSize, inverseShadowmapSize, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution));
+		
+		if (@params.pointLightParams.softShadow) _currentBuffer.EnableShaderKeyword(ShaderManager.POINT_LIGHT_SOFT_SHADOWS);
+		else _currentBuffer.DisableShaderKeyword(ShaderManager.POINT_LIGHT_SOFT_SHADOWS);
+		
+		ExecuteCurrentBuffer(context);
+	}
+
 	private void RenderPointLightShadow(ScriptableRenderContext context, CullingResults cull, int shadowLightCount, Light[] shadowLights, int[] shadowLightIndices) {
 		var shadowSlices = shadowLightCount * 6;
 		// _currentBuffer.GetTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
@@ -242,7 +281,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 			for (var j = 0; j < 6; j++) {
 				var shadowSlice = i * 6 + j;
-				ResetRenderTarget(_pointLightShadowmapArrayId, CubemapFace.Unknown, shadowSlice, true, true, 1, Color.black);
+				ResetRenderTarget(PointLightShadowmapArrayId, CubemapFace.Unknown, shadowSlice, true, true, 1, Color.black);
 				if (!cull.ComputePointShadowMatricesAndCullingPrimitives(shadowLightIndices[i], (CubemapFace) j, 0, out var viewMatrix, out var projectionMatrix, out var splitData)) {
 					ExecuteCurrentBuffer(context);
 					continue;
@@ -296,7 +335,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_NORMAL_BIAS, light.shadowNormalBias);
 			
 			var shadowSettings = new ShadowDrawingSettings(cull, shadowLightIndices[i]);
-			ResetRenderTarget(_spotLightShadowmapArrayId, CubemapFace.Unknown, i, true, false, 1, Color.black);
+			ResetRenderTarget(SpotLightShadowmapArrayId, CubemapFace.Unknown, i, true, false, 1, Color.black);
 
 			if (!cull.ComputeSpotShadowMatricesAndCullingPrimitives(shadowLightIndices[i], out var viewMatrix, out var projectionMatrix, out var splitData)) {
 				ExecuteCurrentBuffer(context);
@@ -338,16 +377,16 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	private void DitherTransparentBlur(ScriptableRenderContext context, int width, int height) {
 		_currentBuffer.GetTemporaryRT(ShaderManager.TEMPORARY_TEXTURE_1, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
 		_currentBuffer.GetTemporaryRT(ShaderManager.TEMPORARY_TEXTURE_2, width, height, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
-		_currentBuffer.Blit(_colorBufferId, _temporaryTexture1Id);
+		_currentBuffer.Blit(ColorBufferId, TemporaryTexture1Id);
 		
 		@params.ditherTransparentParams.blurMaterial.SetFloat(ShaderManager.BLUR_RADIUS, @params.ditherTransparentParams.blurRadius);
 
 		for (int i = 0; i < @params.ditherTransparentParams.iteration; i++) {
-			_currentBuffer.Blit(_temporaryTexture1Id, _temporaryTexture2Id, @params.ditherTransparentParams.blurMaterial, 0);
-			_currentBuffer.Blit(_temporaryTexture2Id, _temporaryTexture1Id, @params.ditherTransparentParams.blurMaterial, 1);
+			_currentBuffer.Blit(TemporaryTexture1Id, TemporaryTexture2Id, @params.ditherTransparentParams.blurMaterial, 0);
+			_currentBuffer.Blit(TemporaryTexture2Id, TemporaryTexture1Id, @params.ditherTransparentParams.blurMaterial, 1);
 		}
 		
-		_currentBuffer.Blit(_temporaryTexture1Id, _colorBufferId, @params.ditherTransparentParams.blurMaterial, 2);
+		_currentBuffer.BlitWithDepth(TemporaryTexture1Id, ColorBufferId, OpaqueDepthId, @params.ditherTransparentParams.blurMaterial, 2);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TEMPORARY_TEXTURE_1);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TEMPORARY_TEXTURE_2);
 		ExecuteCurrentBuffer(context);
@@ -362,10 +401,12 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		// 设置视口、观察矩阵和投影矩阵
 		// context.SetupCameraProperties(camera);
 
+		var viewPort = camera.pixelRect;
 		var viewMatrix = camera.worldToCameraMatrix;
+		var projectionMatrix = camera.projectionMatrix;
 		
-		_currentBuffer.SetViewport(camera.pixelRect);
-		_currentBuffer.SetViewProjectionMatrices(viewMatrix, camera.projectionMatrix);
+		_currentBuffer.SetViewport(viewPort);
+		_currentBuffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
 
 		var farClipPlane = camera.farClipPlane;
 		var nearClipPlane = camera.nearClipPlane;
@@ -409,7 +450,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		// 绑定不透明物体的深度图为渲染目标，初始化为最大值
 		// 法线图是Color Buffer，和深度图一起被绘制
 		// 写入不透明物体的最小深度值（最近的片元）和归一化后的法线
-		ResetRenderTarget(_opaqueNormalId, _opaqueDepthId, true, true, 1, Color.black);
+		ResetRenderTarget(OpaqueNormalId, OpaqueDepthId, true, true, 1, Color.black);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -428,7 +469,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		context.DrawRenderers(cull, ref depthNormalDrawSettings, ref filterSettings);
 		
 		// 渲染所有需单独写入的Stencil
-		ResetRenderTarget(BuiltinRenderTextureType.None, _opaqueDepthId, false, false, 1, Color.black);
+		ResetRenderTarget(BuiltinRenderTextureType.None, OpaqueDepthId, false, false, 1, Color.black);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -455,8 +496,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		var depthBoundKernel = @params.tbrComputeShader.FindKernel("GenerateDepthBound");
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.TILE_NUMBER, (float) depthBoundTextureWidth, (float) depthBoundTextureHeight);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, _opaqueDepthId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_BOUND_TEXTURE, _depthBoundId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthBoundKernel, threadGroupsX, threadGroupsY, 1);
 
 		ExecuteCurrentBuffer(context);
@@ -469,8 +510,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_POSITION, cameraPosition.x, cameraPosition.y, cameraPosition.z);
 		_currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
 		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_BOUND_TEXTURE, _depthBoundId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, _depthFrustumId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthFrustumKernel, threadGroupsX, threadGroupsY, 1);
 		
 		ExecuteCurrentBuffer(context);
@@ -516,7 +557,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		if (@params.sunlightParams.shadowOn && sunlight.Exists() && sunlight.shadows != LightShadows.None) {
 			_currentBuffer.EnableShaderKeyword(ShaderManager.SUNLIGHT_SHADOWS);
-			_currentBuffer.EnableShaderKeyword(ShaderManager.SPOT_LIGHT_SOFT_SHADOWS);
 			RenderCascadedDirectionalShadow(context, cull, sunlightIndex, sunlight, cullingParameters.shadowDistance);
 		} else _currentBuffer.DisableShaderKeyword(ShaderManager.SUNLIGHT_SHADOWS);
 
@@ -591,6 +631,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		if (@params.pointLightParams.shadowOn) {
 			_currentBuffer.EnableShaderKeyword(ShaderManager.POINT_LIGHT_SHADOWS);
 			RenderPointLightShadow(context, cull, pointLightShadowCount, shadowPointLights, pointLightIndices);
+			// if (pointLightShadowCount > 0) RenderPointLightShadow(context, cull, shadowPointLights[0], pointLightIndices[0]);
 		} else _currentBuffer.DisableShaderKeyword(ShaderManager.POINT_LIGHT_SHADOWS);
 
 		if (@params.spotLightParams.shadowOn) {
@@ -607,21 +648,21 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var pointLightKernel = @params.tbrComputeShader.FindKernel("CullPointLight");
 		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.POINT_LIGHT_COUNT, pointLightCount);
 		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, _depthFrustumId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, _culledPointLightId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, CulledPointLightId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, pointLightKernel, threadGroupsX, threadGroupsY, 1);
 		
 		var spotLightKernel = @params.tbrComputeShader.FindKernel("CullSpotLight");
 		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.SPOT_LIGHT_COUNT, spotLightCount);
 		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, _depthFrustumId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, _culledSpotLightId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, CulledSpotLightId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, spotLightKernel, threadGroupsX, threadGroupsY, 1);
 		
 		ExecuteCurrentBuffer(context);
 		
-		_currentBuffer.SetGlobalTexture(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, _culledPointLightId);
-		_currentBuffer.SetGlobalTexture(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, _culledSpotLightId);
+		_currentBuffer.SetGlobalTexture(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, CulledPointLightId);
+		_currentBuffer.SetGlobalTexture(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, CulledSpotLightId);
 		_currentBuffer.SetGlobalBuffer(ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
 		_currentBuffer.SetGlobalBuffer(ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
 		
@@ -629,7 +670,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		context.SetupCameraProperties(camera);
 		
-		ResetRenderTarget(_colorBufferId, _opaqueDepthId, false, true, 0, Color.black);
+		ResetRenderTarget(ColorBufferId, OpaqueDepthId, false, true, 0, Color.black);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -650,12 +691,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		if (@params.ditherTransparentParams.blurOn && @params.ditherTransparentParams.blurMaterial != null) DitherTransparentBlur(context, pixelWidth >> @params.ditherTransparentParams.downSamples, pixelHeight >> @params.ditherTransparentParams.downSamples);
 		
 		// 将颜色缓冲输出到当前照相机渲染目标，一般是屏幕
-		_currentBuffer.Blit(_colorBufferId, BuiltinRenderTextureType.CameraTarget);
+		_currentBuffer.Blit(ColorBufferId, BuiltinRenderTextureType.CameraTarget);
 
 #if UNITY_EDITOR
 		if (@params.testMaterialOn) {
-			 _currentBuffer.Blit(BuiltinRenderTextureType.CurrentActive, BuiltinRenderTextureType.CurrentActive, @params.testMaterial);
-			if (@params.depthBoundOn) _currentBuffer.Blit(_depthBoundId, BuiltinRenderTextureType.CurrentActive);
+			@params.testMaterial.SetInt("_TestInt", @params.testInt);
+			_currentBuffer.Blit(BuiltinRenderTextureType.CurrentActive, BuiltinRenderTextureType.CurrentActive, @params.testMaterial);
+			// _currentBuffer.Blit(PointLightShadowmapId, BuiltinRenderTextureType.CurrentActive);
+			if (@params.depthBoundOn) _currentBuffer.Blit(DepthBoundId, BuiltinRenderTextureType.CurrentActive);
 		}
 #endif
 		
@@ -723,9 +766,11 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			volumeDepth = 17
 		};
 
-		_currentBuffer.GetTemporaryRT(ShaderManager.COLOR_BUFFER, pixelWidth, pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.Default);
-		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Point, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear);
-		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat);
+		var msaa = (int) @params.msaa;
+		
+		_currentBuffer.GetTemporaryRT(ShaderManager.COLOR_BUFFER, pixelWidth, pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.Default, RenderTextureReadWrite.Default, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat, msaa);
 		// _currentBuffer.GetTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP, sunlightShadowmapDescriptor, FilterMode.Bilinear);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.RGHalf, RenderTextureReadWrite.Linear, 1, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
@@ -763,6 +808,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP_ARRAY);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.SPOT_LIGHT_SHADOWMAP_ARRAY);
 	}

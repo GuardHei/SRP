@@ -1,15 +1,6 @@
 ﻿#ifndef SRP_INCLUDE
 #define SRP_INCLUDE
 
-/*
-#pragma multi_compile _ _SUNLIGHT_SHADOWS
-#pragma multi_compile _ _SUNLIGHT_SOFT_SHADOWS
-#pragma multi_compile _ _POINT_LIGHT_SHADOWS
-#pragma multi_compile _ _POINT_LIGHT_SOFT_SHADOWS
-#pragma multi_compile _ _SPOT_LIGHT_SHADOWS
-#pragma multi_compile _ _SPOT_LIGHT_SOFT_SHADOWS
-*/
-
 #define UNITY_MATRIX_M unity_ObjectToWorld
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
@@ -38,8 +29,11 @@ StructuredBuffer<float4x4> spotLight_InverseVPBuffer;
 Texture3D<uint> _CulledPointLightTexture;
 Texture3D<uint> _CulledSpotLightTexture;
 
+TEXTURE2D(_MainTex);
+SAMPLER(sampler_MainTex);
+
 TEXTURE2D(_OpaqueNormalTexture);
-// SAMPLER(sampler_OpaqueNormalTexture);
+SAMPLER(sampler_OpaqueNormalTexture);
 
 TEXTURE2D(_OpaqueDepthTexture);
 SAMPLER(sampler_OpaqueDepthTexture);
@@ -48,7 +42,10 @@ TEXTURE2D_SHADOW(_SunlightShadowmap);
 SAMPLER_CMP(sampler_SunlightShadowmap);
 
 TEXTURE2D_ARRAY_SHADOW(_SunlightShadowmapArray);
-SAMPLER_CMP(sampler_SunlightShadowmapArray); 
+SAMPLER_CMP(sampler_SunlightShadowmapArray);
+
+TEXTURECUBE_SHADOW(_PointLightShadowmap);
+SAMPLER(sampler_PointLightShadowmap);
 
 // TEXTURECUBE_SHADOW(_PointLightShadowmapArray);
 TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray);
@@ -166,13 +163,18 @@ inline float3 WorldSpaceViewDirection(float3 worldPos) {
     return _WorldSpaceCameraPos.xyz - worldPos;
 }
 
-inline float isDithered64(uint2 screenIndex, float alpha) {
+inline float IsDithered64(uint2 screenIndex, float alpha) {
     uint index = (screenIndex.x % 8) * 8 + screenIndex.y % 8;
     return alpha - DITHER_THRESHOLDS_64[index] / 65.0;
 }
 
-inline void ditherClip64(uint2 screenIndex, float alpha) {
-    clip(isDithered64(screenIndex, alpha));
+inline void DitherClip64(uint2 screenIndex, float alpha) {
+    clip(IsDithered64(screenIndex, alpha));
+}
+
+inline float2 TransformTriangleVertexToUV(float4 vertex) {
+    float2 uv = (vertex.xy + 1.0) * .5;
+    return uv;
 }
 
 ////////////////////////
@@ -248,7 +250,6 @@ float DefaultCascadedDirectionalShadow(float3 worldPos) {
 }
 
 inline float PointHardShadow(float4 shadowPos, float index) {
-    return 1;
     // return SAMPLE_TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray, sampler_PointLightShadowmapArray, shadowPos, index);
     // return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, shadowPos.xyz);
     return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
@@ -275,6 +276,21 @@ float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 li
     float shadowAttenuation = PointSoftShadow(shadowPos, shadowIndex);
 #endif
     return lerp(1, shadowAttenuation, light.shadowStrength);
+#endif
+}
+
+float3 TestPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 lightIndex) {
+#if !defined(_POINT_LIGHT_SHADOWS)
+    return 1;
+#else
+    PointLight light = _PointLightBuffer[_CulledPointLightTexture[lightIndex]];
+    uint shadowIndex = light.shadowIndex;
+    if (shadowIndex == 0) return 1;
+    // lightDir *= float3(-1, -1, 1);
+    return lightDir;
+    float4 shadowPos = float4(lightDir, depth);
+    float shadowAttenuation = SAMPLE_TEXTURECUBE(_PointLightShadowmap, sampler_PointLightShadowmap, lightDir);
+    return shadowAttenuation;
 #endif
 }
 
@@ -329,6 +345,8 @@ inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIn
     diffuse *= rangeFade / distanceSqr;
     float radius = light.sphere.w;
     // return DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
+    // return TestPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
+    // return diffuse * light.color * TestPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
     return diffuse * light.color * DefaultPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
 }
 

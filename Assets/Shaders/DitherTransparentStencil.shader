@@ -26,7 +26,7 @@
 
             HLSLPROGRAM
 
-            #pragma target 3.5
+            #pragma target 5.0
 
             #pragma vertex UnlitVertex
             #pragma fragment NoneFragment
