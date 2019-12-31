@@ -16,6 +16,7 @@ RWTexture3D<float4> _DepthFrustumTexture;
 RWTexture3D<uint> _CulledPointLightTexture;
 RWTexture3D<uint> _CulledSpotLightTexture;
 Texture2D<float> _OpaqueDepthTexture;
+Texture2D<float> _TransparentDepthTexture;
 
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;

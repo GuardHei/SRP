@@ -12,6 +12,7 @@ public class ShaderManager {
 	public static readonly int MAIN_TEXTURE = Shader.PropertyToID("_MainTex");
 	public static readonly int OPAQUE_DEPTH_TEXTURE = Shader.PropertyToID("_OpaqueDepthTexture");
 	public static readonly int OPAQUE_NORMAL_TEXTURE = Shader.PropertyToID("_OpaqueNormalTexture");
+	public static readonly int TRANSPARENT_DEPTH_TEXTURE = Shader.PropertyToID("_TransparentDepthTexture");
 	public static readonly int DEPTH_BOUND_TEXTURE = Shader.PropertyToID("_DepthBoundTexture");
 	public static readonly int DEPTH_FRUSTUM_TEXTURE = Shader.PropertyToID("_DepthFrustumTexture");
 	public static readonly int CULLED_POINT_LIGHT_TEXTURE = Shader.PropertyToID("_CulledPointLightTexture");

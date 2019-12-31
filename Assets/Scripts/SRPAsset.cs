@@ -92,6 +92,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	public static readonly RenderTargetIdentifier BlitTemporaryTexture1Id = new RenderTargetIdentifier(ShaderManager.BLIT_TEMPORARY_TEXTURE_1);
 	public static readonly RenderTargetIdentifier OpaqueDepthId = new RenderTargetIdentifier(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 	public static readonly RenderTargetIdentifier OpaqueNormalId = new RenderTargetIdentifier(ShaderManager.OPAQUE_NORMAL_TEXTURE);
+	public static readonly RenderTargetIdentifier TransparentDepthId = new RenderTargetIdentifier(ShaderManager.TRANSPARENT_DEPTH_TEXTURE);
 	public static readonly RenderTargetIdentifier SunlightShadowmapId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP);
 	public static readonly RenderTargetIdentifier SunlightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP_ARRAY);
 	public static readonly RenderTargetIdentifier PointLightShadowmapId = new RenderTargetIdentifier(ShaderManager.POINT_LIGHT_SHADOWMAP);
@@ -481,6 +482,20 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		filterSettings.renderQueueRange = RenderQueueRange.all;
 		
 		context.DrawRenderers(cull, ref stencilDrawSettings, ref filterSettings);
+		
+		ResetRenderTarget(BuiltinRenderTextureType.None, TransparentDepthId, true, false, 1, Color.black);
+		
+		ExecuteCurrentBuffer(context);
+		
+		var transparentSortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.CommonTransparent };
+
+		var transparentDepthDrawSettings = new DrawingSettings(ShaderTagManager.DEPTH, sortingSettings) {
+			enableDynamicBatching = @params.enableDynamicBatching,
+			enableInstancing = @params.enableInstancing
+		};
+		
+		filterSettings.renderQueueRange = RenderQueueRange.transparent;
+		context.DrawRenderers(cull, ref transparentDepthDrawSettings, ref filterSettings);
 
 		// Tile Based Light Cull
 		var depthBoundTextureWidth = pixelWidth / @params.depthTileResolution;
@@ -497,6 +512,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var depthBoundKernel = @params.tbrComputeShader.FindKernel("GenerateDepthBound");
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.TILE_NUMBER, (float) depthBoundTextureWidth, (float) depthBoundTextureHeight);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.TRANSPARENT_DEPTH_TEXTURE, TransparentDepthId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthBoundKernel, threadGroupsX, threadGroupsY, 1);
 
@@ -769,8 +785,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var msaa = (int) @params.msaa;
 		
 		_currentBuffer.GetTemporaryRT(ShaderManager.COLOR_BUFFER, pixelWidth, pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.Default, RenderTextureReadWrite.Default, msaa);
-		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Linear, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.TRANSPARENT_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
 		// _currentBuffer.GetTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP, sunlightShadowmapDescriptor, FilterMode.Bilinear);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.RGHalf, RenderTextureReadWrite.Linear, 1, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
@@ -802,6 +819,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.COLOR_BUFFER);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TRANSPARENT_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
