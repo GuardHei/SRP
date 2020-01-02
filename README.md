@@ -5,7 +5,7 @@ A customized forward+ render pipeline for Unity
 
 ## Planned Features
 1. Supports forward+ render path (Implemented)
-2. Supports tile-based light culling with transparent objects (Implemented)
+2. Supports tile-based light culling with transparent objects (Implemented - Both dither transparent & transparent)
 3. Supports realtime directional light (Implemented) \ spot light (Implemented) \ point light shadows
 4. Supports cascaded shadowmap for directional light (Implemented)
 5. Supports volumetric lighting

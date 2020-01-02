@@ -522,6 +522,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var depthBoundKernel = @params.tbrComputeShader.FindKernel("GenerateDepthBound");
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.TILE_NUMBER, (float) depthBoundTextureWidth, (float) depthBoundTextureHeight);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_TEXTURE, DepthId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthBoundKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
 
