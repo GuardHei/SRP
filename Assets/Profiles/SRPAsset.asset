@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SRPAsset
   m_EditorClassIdentifier: 
   params:
-    enableDynamicBatching: 1
+    enableDynamicBatching: 0
     enableInstancing: 1
     enableSRPBatching: 0
     msaa: 1
@@ -21,6 +21,8 @@ MonoBehaviour:
     depthTileResolution: 16
     alphaTestDepthCutoff: 0.001
     tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
+    generalComputeShader: {fileID: 7200000, guid: 41a3c78fcbfdb40f1aa1a053a7e60b22,
+      type: 3}
     sunlightParams:
       shadowOn: 1
       shadowResolution: 4096
@@ -45,6 +47,6 @@ MonoBehaviour:
       blurMaterial: {fileID: 2100000, guid: 91224c5cbba514b418a1d6cbae56ea58, type: 2}
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
-    depthBoundOn: 1
+    depthBoundOn: 0
     gizmosOn: 0
     testInt: 0

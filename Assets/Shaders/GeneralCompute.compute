@@ -1,0 +1,13 @@
+﻿#pragma kernel CopyDepth
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+
+#include "ComputeUtils.hlsl"
+
+RWTexture2D<float> _OpaqueDepthTexture;
+Texture2D<float> _DepthTexture;
+
+[numthreads(8,8,1)]
+void CopyDepth(uint3 id : SV_DispatchThreadID) {
+    _OpaqueDepthTexture[id.xy] = _DepthTexture[id.xy];
+}

@@ -15,8 +15,7 @@ RWTexture2D<float2> _DepthBoundTexture;
 RWTexture3D<float4> _DepthFrustumTexture;
 RWTexture3D<uint> _CulledPointLightTexture;
 RWTexture3D<uint> _CulledSpotLightTexture;
-Texture2D<float> _OpaqueDepthTexture;
-Texture2D<float> _TransparentDepthTexture;
+Texture2D<float> _DepthTexture;
 
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
@@ -39,9 +38,10 @@ void GenerateDepthBound(uint2 id : SV_DISPATCHTHREADID) {
 
     for (uint i = 0; i < tileResolution; ++i) {
         for (uint j = 0; j < tileResolution; ++j) {
-            float opaqueDepth = _OpaqueDepthTexture[uint2(baseX + i, baseY + j)];
-            if (opaqueDepth > max) max = opaqueDepth;
-            if (opaqueDepth < min) min = opaqueDepth;
+            uint2 index = uint2(baseX + i, baseY + j);
+            float depth = _DepthTexture[index];
+            if (depth > max) max = depth;
+            if (depth < min) min = depth;
         }
     }
 

@@ -4,6 +4,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 using Object = UnityEngine.Object;
 using RenderPipeline = UnityEngine.Rendering.RenderPipeline;
 
@@ -27,6 +28,7 @@ public class SRPipelineParams {
 	public int depthTileResolution = 16;
 	public float alphaTestDepthCutoff = .001f;
 	public ComputeShader tbrComputeShader;
+	public ComputeShader generalComputeShader;
 	public SunlightParams sunlightParams;
 	public PointLightParams pointLightParams;
 	public SpotLightParams spotLightParams;
@@ -90,9 +92,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	public static readonly RenderTargetIdentifier TemporaryTexture1Id = new RenderTargetIdentifier(ShaderManager.TEMPORARY_TEXTURE_1);
 	public static readonly RenderTargetIdentifier TemporaryTexture2Id = new RenderTargetIdentifier(ShaderManager.TEMPORARY_TEXTURE_2);
 	public static readonly RenderTargetIdentifier BlitTemporaryTexture1Id = new RenderTargetIdentifier(ShaderManager.BLIT_TEMPORARY_TEXTURE_1);
+	public static readonly RenderTargetIdentifier DepthId = new RenderTargetIdentifier(ShaderManager.DEPTH_TEXTURE);
 	public static readonly RenderTargetIdentifier OpaqueDepthId = new RenderTargetIdentifier(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 	public static readonly RenderTargetIdentifier OpaqueNormalId = new RenderTargetIdentifier(ShaderManager.OPAQUE_NORMAL_TEXTURE);
-	public static readonly RenderTargetIdentifier TransparentDepthId = new RenderTargetIdentifier(ShaderManager.TRANSPARENT_DEPTH_TEXTURE);
 	public static readonly RenderTargetIdentifier SunlightShadowmapId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP);
 	public static readonly RenderTargetIdentifier SunlightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SUNLIGHT_SHADOWMAP_ARRAY);
 	public static readonly RenderTargetIdentifier PointLightShadowmapId = new RenderTargetIdentifier(ShaderManager.POINT_LIGHT_SHADOWMAP);
@@ -451,7 +453,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		// 绑定不透明物体的深度图为渲染目标，初始化为最大值
 		// 法线图是Color Buffer，和深度图一起被绘制
 		// 写入不透明物体的最小深度值（最近的片元）和归一化后的法线
-		ResetRenderTarget(OpaqueNormalId, OpaqueDepthId, true, true, 1, Color.black);
+		ResetRenderTarget(OpaqueNormalId, DepthId, true, true, 1, Color.black);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -469,8 +471,22 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		filterSettings.renderQueueRange = ShaderManager.ALPHA_TEST_QUEUE_RANGE;
 		context.DrawRenderers(cull, ref depthNormalDrawSettings, ref filterSettings);
 		
+		// _currentBuffer.Blit(DepthId, OpaqueDepthId, MaterialManager.DepthCopyMaterial);
+
+		var screenThreadGroupsX = pixelWidth / 8;
+		var screenThreadGroupsY = pixelHeight / 8;
+		if (pixelWidth % 8 != 0) screenThreadGroupsX++;
+		if (pixelHeight % 8 != 0) screenThreadGroupsY++;
+
+		var depthCopyKernel = @params.generalComputeShader.FindKernel("CopyDepth");
+		_currentBuffer.SetComputeTextureParam(@params.generalComputeShader, depthCopyKernel, ShaderManager.DEPTH_TEXTURE, DepthId);
+		_currentBuffer.SetComputeTextureParam(@params.generalComputeShader, depthCopyKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
+		_currentBuffer.DispatchCompute(@params.generalComputeShader, depthCopyKernel, screenThreadGroupsX, screenThreadGroupsY, 1);
+		
+		_currentBuffer.SetGlobalTexture(ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
+		
 		// 渲染所有需单独写入的Stencil
-		ResetRenderTarget(BuiltinRenderTextureType.None, OpaqueDepthId, false, false, 1, Color.black);
+		ResetRenderTarget(ColorBufferId, DepthId, false, false, 1, Color.black);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -480,14 +496,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		};
 		
 		filterSettings.renderQueueRange = RenderQueueRange.all;
-		
+
 		context.DrawRenderers(cull, ref stencilDrawSettings, ref filterSettings);
-		
-		ResetRenderTarget(BuiltinRenderTextureType.None, TransparentDepthId, true, false, 1, Color.black);
-		
-		ExecuteCurrentBuffer(context);
-		
-		var transparentSortingSettings = new SortingSettings(camera) { criteria = SortingCriteria.CommonTransparent };
 
 		var transparentDepthDrawSettings = new DrawingSettings(ShaderTagManager.DEPTH, sortingSettings) {
 			enableDynamicBatching = @params.enableDynamicBatching,
@@ -502,19 +512,18 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var depthBoundTextureHeight = pixelHeight / @params.depthTileResolution;
 		if (pixelWidth % @params.depthTileResolution != 0) depthBoundTextureWidth++;
 		if (pixelHeight % @params.depthTileResolution != 0) depthBoundTextureHeight++;
-		var threadGroupsX = depthBoundTextureWidth / 16;
-		var threadGroupsY = depthBoundTextureHeight / 9;
-		if (depthBoundTextureWidth % 16 != 0) threadGroupsX++;
-		if (depthBoundTextureHeight % 9 != 0) threadGroupsY++;
+		var tileThreadGroupsX = depthBoundTextureWidth / 16;
+		var tileThreadGroupsY = depthBoundTextureHeight / 9;
+		if (depthBoundTextureWidth % 16 != 0) tileThreadGroupsX++;
+		if (depthBoundTextureHeight % 9 != 0) tileThreadGroupsY++;
 		
 		// Debug.Log(pixelWidth + ", " + pixelHeight);
 
 		var depthBoundKernel = @params.tbrComputeShader.FindKernel("GenerateDepthBound");
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.TILE_NUMBER, (float) depthBoundTextureWidth, (float) depthBoundTextureHeight);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
-		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.TRANSPARENT_DEPTH_TEXTURE, TransparentDepthId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_TEXTURE, DepthId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthBoundKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
-		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthBoundKernel, threadGroupsX, threadGroupsY, 1);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthBoundKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
 
 		ExecuteCurrentBuffer(context);
 
@@ -528,7 +537,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
-		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthFrustumKernel, threadGroupsX, threadGroupsY, 1);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthFrustumKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -666,14 +675,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, CulledPointLightId);
-		_currentBuffer.DispatchCompute(@params.tbrComputeShader, pointLightKernel, threadGroupsX, threadGroupsY, 1);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, pointLightKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
 		
 		var spotLightKernel = @params.tbrComputeShader.FindKernel("CullSpotLight");
 		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.SPOT_LIGHT_COUNT, spotLightCount);
 		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.SPOT_LIGHT_BUFFER, _spotLightBuffer);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, spotLightKernel, ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, CulledSpotLightId);
-		_currentBuffer.DispatchCompute(@params.tbrComputeShader, spotLightKernel, threadGroupsX, threadGroupsY, 1);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, spotLightKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
 		
 		ExecuteCurrentBuffer(context);
 		
@@ -703,6 +712,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		
 		// 渲染天空盒
 		if ((camera.clearFlags & CameraClearFlags.Skybox) != 0) context.DrawSkybox(camera);
+		
+		ResetRenderTarget(ColorBufferId, DepthId, false, false, 1, Color.black);
+		
+		ExecuteCurrentBuffer(context);
+
+		// 渲染半透明物体
+		filterSettings.renderQueueRange = RenderQueueRange.transparent;
+		context.DrawRenderers(cull, ref drawSettings, ref filterSettings);
 
 		if (@params.ditherTransparentParams.blurOn && @params.ditherTransparentParams.blurMaterial != null) DitherTransparentBlur(context, pixelWidth >> @params.ditherTransparentParams.downSamples, pixelHeight >> @params.ditherTransparentParams.downSamples);
 		
@@ -785,9 +802,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var msaa = (int) @params.msaa;
 		
 		_currentBuffer.GetTemporaryRT(ShaderManager.COLOR_BUFFER, pixelWidth, pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.Default, RenderTextureReadWrite.Default, msaa);
-		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat, msaa);
-		_currentBuffer.GetTemporaryRT(ShaderManager.TRANSPARENT_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
 		// _currentBuffer.GetTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP, sunlightShadowmapDescriptor, FilterMode.Bilinear);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.RGHalf, RenderTextureReadWrite.Linear, 1, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
@@ -817,9 +834,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 	private void ReleaseRTs() {
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.COLOR_BUFFER);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
-		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TRANSPARENT_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);

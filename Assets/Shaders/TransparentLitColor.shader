@@ -1,4 +1,4 @@
-﻿Shader "SRP/OpaqueLitColor" {
+﻿Shader "SRP/TransparentLitColor" {
 
     Properties {
 	    _Color("Color", Color) = (0, 0, 0, 1)
@@ -6,24 +6,20 @@
     
     SubShader {
 
-        UsePass "SRP/OpaqueDepthNormal/DEPTHNORMAL"
+        Tags { 
+            "Queue" = "Transparent"
+            "RenderType" = "Transparent"
+        }
+
+        UsePass "SRP/TransparentDepth/DEPTH"
 
         Pass {
-
-            Tags { 
-                "RenderType" = "Opaque"
-            }
 
             ZTest Equal
             ZWrite Off
 			Cull Back
-/*
-            Stencil {
-                Ref 1
-                Comp Always
-                ReadMask 1
-            }
-*/
+            Blend SrcAlpha OneMinusSrcAlpha
+
             HLSLPROGRAM
 			#pragma target 5.0
 
@@ -42,20 +38,22 @@
             struct VertexOutput {
                 float4 clipPos : SV_POSITION;
                 float4 worldPos : TEXCOORD0;
-                float3 viewDir : TEXCOORD1;
+                float3 normal : TEXCOORD1;
+                float3 viewDir : TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
-                UNITY_DEFINE_INSTANCED_PROP(float3, _Color)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
             UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
-            VertexOutput Vertex(BasicVertexInput input) {
+            VertexOutput Vertex(SimpleVertexInput input) {
                 VertexOutput output;
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
                 output.worldPos = GetWorldPosition(input.pos.xyz);
                 output.clipPos = GetClipPosition(output.worldPos);
+                output.normal = GetWorldNormal(input.normal);
                 output.viewDir = normalize(WorldSpaceViewDirection(output.worldPos));
                 return output;
             }
@@ -65,8 +63,10 @@
 
                 uint2 screenIndex = screenPos.xy;
 
-                float3 color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Color).rgb;
-                float3 normal = _OpaqueNormalTexture[screenIndex];
+                float4 c = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Color);
+                float3 color = c.rgb;
+                float alpha = c.a;
+                float3 normal = normalize(input.normal);
 
                 uint2 lightTextureIndex = screenIndex / 16;
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
@@ -89,12 +89,12 @@
                     litColor += DefaultSpotLit(input.worldPos, normal, lightIndex);
                 }
 
-                return float4(litColor * color, 1);
+                return float4(litColor * color, alpha);
             }
 
 		    ENDHLSL
         }
-
+/*
         Pass {
 
             Tags { 
@@ -115,5 +115,6 @@
 
 			ENDHLSL
         }
+*/
     }
 }

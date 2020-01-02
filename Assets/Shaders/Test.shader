@@ -34,7 +34,7 @@
             }
 
             float4 Fragment(ImageVertexOutput input) : SV_TARGET {
-
+/*
                 if (_TestInt >= 0 && _TestInt <= 5) {
                     float3 dir = float3(0, 0, 0);
                     float a1 = (input.uv.x - .5) * 2;
@@ -52,12 +52,12 @@
                     dir = normalize(dir);
                     return SAMPLE_TEXTURECUBE(_PointLightShadowmap, sampler_PointLightShadowmap, dir) > 0;
                 }
-
+*/
                 float4 c = SAMPLE_TEXTURE2D(_OpaqueDepthTexture, sampler_OpaqueDepthTexture, input.uv);
-                return c;
+                // return c;
                 float t = c.r + c.g + c.b;
                 float a = 1 - c.r;
-                // return float4(a, a , a, 1);
+                return float4(a, a , a, 1);
                 
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * input.uv.x / 16.0, _ScreenParams.y * input.uv.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];

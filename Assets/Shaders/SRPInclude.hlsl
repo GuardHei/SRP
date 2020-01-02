@@ -382,7 +382,8 @@ BasicVertexOutput UnlitVertex(BasicVertexInput input) {
 ImageVertexOutput ImageVertex(ImageVertexInput input) {
     ImageVertexOutput output;
     output.clipPos = GetClipPosition(GetWorldPosition(input.pos.xyz));
-    output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+    // output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+    output.uv = input.uv;
     return output;
 }
 
