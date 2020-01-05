@@ -28,6 +28,13 @@ struct SpotLight {
 
 CBUFFER_START(UnityPerFrame)
     float4 _ZBufferParams;
+    float4 _WorldSpaceCameraPos;
+    float4 _ScreenParams;
+    float4 _ProjectionParams;
+    float4x4 unity_MatrixV;
+    float4x4 unity_MatrixVP;
+    float4x4 unity_InverseP;
+    float4x4 unity_InverseVP;
 CBUFFER_END
 
 inline float SinOf(float cos) {
@@ -154,6 +161,13 @@ inline float ConeSphereIntersect(Cone cone, float4 sphere) {
     bool backCull = lenComp < -sphere.w;
     
     return !(angleCull || frontCull || backCull);
+}
+
+float4 UnprojectScreenSpaceToViewSpace(float4 position) {
+    float4 clipSpace = float4(float2(position.x, 1 - position.y) * 2 - 1, position.z, position.w);
+    float4 viewSpace = mul(clipSpace, unity_InverseP);
+    viewSpace /= viewSpace.w;
+    return viewSpace;
 }
 
 #endif // COMPUTE_UTILS

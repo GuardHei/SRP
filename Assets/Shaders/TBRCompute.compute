@@ -1,4 +1,5 @@
 ﻿#pragma kernel GenerateDepthBound
+#pragma kernel GenerateDepthMask
 #pragma kernel GenerateDepthFrustum
 #pragma kernel CullPointLight
 #pragma kernel CullSpotLight
@@ -8,15 +9,18 @@
 
 #include "ComputeUtils.hlsl"
 
-#define MAXLIGHTPERTILE 16
+#define MAXPOINTLIGHTPERTILE 16
+#define MAXSPOTLIGHTPERTILE 4
 #define MAXDECALPERTILE 4
 
-RWTexture2D<float2> _DepthBoundTexture;
+Texture2D<float> _DepthTexture;
+Texture2D<float> _OpaqueDepthTexture;
+
+RWTexture2D<uint> _DepthMaskTexture;
+RWTexture2D<float4> _DepthBoundTexture;
 RWTexture3D<float4> _DepthFrustumTexture;
 RWTexture3D<uint> _CulledPointLightTexture;
 RWTexture3D<uint> _CulledSpotLightTexture;
-Texture2D<float> _DepthTexture;
-Texture2D<float> _OpaqueDepthTexture;
 
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
@@ -26,7 +30,6 @@ uint _SpotLightCount;
 float2 _TileNumber;
 float3 _CameraForward;
 float3 _CameraPosition;
-float4x4 _InverseVP;
 
 [numthreads(16,9,1)]
 void GenerateDepthBound(uint2 id : SV_DISPATCHTHREADID) {
@@ -52,13 +55,42 @@ void GenerateDepthBound(uint2 id : SV_DISPATCHTHREADID) {
         }
     }
 
-    _DepthBoundTexture[id.xy] = float2(min, max);
+    _DepthBoundTexture[id.xy] = float4(LinearEyeDepth(min, _ZBufferParams), LinearEyeDepth(max, _ZBufferParams), UnprojectScreenSpaceToViewSpace(float4(0, 0, min, 1)).z, UnprojectScreenSpaceToViewSpace(float4(0, 0, max, 1)).z);
+}
+
+[numthreads(16, 9, 1)]
+void GenerateDepthMask(uint2 id : SV_DISPATCHTHREADID) {
+    const uint tileResolution = 16;
+    uint baseX = id.x * tileResolution;
+    uint baseY = id.y * tileResolution;
+
+    uint depthMask = 0;
+    float2 minMax = _DepthBoundTexture[id.xy].xy;
+    float invDepthRange = 32.0f / (minMax.y - minMax.x);
+
+    for (uint i = 0; i < tileResolution; ++i) {
+        for (uint j = 0; j < tileResolution; ++j) {
+            uint2 index = uint2(baseX + i, baseY + j);
+            /*
+            float depth = UnprojectScreenSpaceToViewSpace(float4(0, 0, _DepthTexture[index], 1)).z;
+            float opaqueDepth = UnprojectScreenSpaceToViewSpace(float4(0, 0, _OpaqueDepthTexture[index], 1)).z;
+            */
+            float depth = LinearEyeDepth(_DepthTexture[index], _ZBufferParams);
+            float opaqueDepth = LinearEyeDepth(_OpaqueDepthTexture[index], _ZBufferParams);
+            uint bitMask = max(0, min(32, floor((depth - minMax.x) * invDepthRange)));
+            depthMask |= 1 << bitMask;
+            bitMask = max(0, min(32, floor((opaqueDepth - minMax.x) * invDepthRange)));
+            depthMask |= 1 << bitMask;
+        }
+    }
+
+    _DepthMaskTexture[id.xy] = depthMask;
 }
 
 [numthreads(16, 9, 1)]
 void GenerateDepthFrustum(uint2 id : SV_DISPATCHTHREADID) {
     const float nearZ = 1;
-    float2 minMax;
+    float2 eyeDepthBound;
     float4 cornerUV;
     cornerUV.xy = id / _TileNumber;
     cornerUV.zw = cornerUV.xy + 1.0 / _TileNumber;
@@ -68,19 +100,19 @@ void GenerateDepthFrustum(uint2 id : SV_DISPATCHTHREADID) {
 #if UNITY_REVERSED_Z
     const float flagA = 1;
     const float flagB = -1;
-    minMax = _DepthBoundTexture[id].yx;
+    eyeDepthBound = _DepthBoundTexture[id].yx;
 #else
     const float flagA = -1;
     const float flagB = 1;
-    minMax = _DepthBoundTexture[id].xy;
+    eyeDepthBound = _DepthBoundTexture[id].xy;
 #endif
 
-    float2 eyeDepthBound = float2(LinearEyeDepth(minMax.x, _ZBufferParams), LinearEyeDepth(minMax.y, _ZBufferParams));
+    // float2 eyeDepthBound = float2(LinearEyeDepth(minMax.x, _ZBufferParams), LinearEyeDepth(minMax.y, _ZBufferParams));
 
-    _DepthFrustumTexture[uint3(id, 0)] = GetPlane(mul(_InverseVP, float4(flagA, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(flagB, cornerUV.w, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.w, .5, 1)));
-    _DepthFrustumTexture[uint3(id, 1)] = GetPlane(mul(_InverseVP, float4(flagB, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(flagA, cornerUV.y, nearZ, 1)), mul(_InverseVP, float4(0, cornerUV.y, .5, 1)));
-    _DepthFrustumTexture[uint3(id, 2)] = GetPlane(mul(_InverseVP, float4(cornerUV.x, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.x, 0, .5, 1)));
-    _DepthFrustumTexture[uint3(id, 3)] = GetPlane(mul(_InverseVP, float4(cornerUV.z, flagB, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, flagA, nearZ, 1)), mul(_InverseVP, float4(cornerUV.z, 0, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 0)] = GetPlane(mul(unity_InverseVP, float4(flagA, cornerUV.w, nearZ, 1)), mul(unity_InverseVP, float4(flagB, cornerUV.w, nearZ, 1)), mul(unity_InverseVP, float4(0, cornerUV.w, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 1)] = GetPlane(mul(unity_InverseVP, float4(flagB, cornerUV.y, nearZ, 1)), mul(unity_InverseVP, float4(flagA, cornerUV.y, nearZ, 1)), mul(unity_InverseVP, float4(0, cornerUV.y, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 2)] = GetPlane(mul(unity_InverseVP, float4(cornerUV.x, flagA, nearZ, 1)), mul(unity_InverseVP, float4(cornerUV.x, flagB, nearZ, 1)), mul(unity_InverseVP, float4(cornerUV.x, 0, .5, 1)));
+    _DepthFrustumTexture[uint3(id, 3)] = GetPlane(mul(unity_InverseVP, float4(cornerUV.z, flagB, nearZ, 1)), mul(unity_InverseVP, float4(cornerUV.z, flagA, nearZ, 1)), mul(unity_InverseVP, float4(cornerUV.z, 0, .5, 1)));
     _DepthFrustumTexture[uint3(id, 4)] = GetPlane(-_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.x);
     _DepthFrustumTexture[uint3(id, 5)] = GetPlane(_CameraForward, _CameraPosition + _CameraForward * eyeDepthBound.y);
 }
@@ -99,10 +131,30 @@ void CullPointLight(uint2 id : SV_DISPATCHTHREADID) {
     uint lightCount = 0;
     uint3 lightCountIndex = uint3(id, 0);
 
-    for (uint i = 0; lightCount < MAXLIGHTPERTILE && i < _PointLightCount; ++i) {
+    float2 minMax = _DepthBoundTexture[id.xy].xy;
+    float invDepthRange = 32.0f / (minMax.y - minMax.x);
+    uint tileDepthMask = _DepthMaskTexture[id.xy];
+
+    for (uint i = 0; lightCount < MAXPOINTLIGHTPERTILE && i < _PointLightCount; ++i) {
         PointLight light = _PointLightBuffer[i];
         if (SphereIntersect(light.sphere, planes) > .5) {
-            _CulledPointLightTexture[uint3(id, lightCount + 1)] = i;
+            uint3 index = uint3(id, lightCount + 1);
+/*
+            float lightPosDepth = LinearEyeDepth(light.sphere.xyz, unity_MatrixV);
+            float minDepth = lightPosDepth - light.sphere.r;
+            float maxDepth = lightPosDepth + light.sphere.r;
+            uint depthMask = 0xFFFFFFF;
+            uint depthMaskStart = max(0, min(32, floor((minDepth - minMax.x) * invDepthRange)));
+            uint depthMaskEnd = max(0, min(32, floor((maxDepth - minMax.x) * invDepthRange)));
+            depthMask >>= 31 - (depthMaskEnd - depthMaskStart);
+            depthMask <<= depthMaskStart;
+
+            if (tileDepthMask & depthMask) {
+                _CulledPointLightTexture[index] = i;
+                lightCount++;
+            }
+*/
+            _CulledPointLightTexture[index] = i;
             lightCount++;
         }
     }
@@ -124,10 +176,11 @@ void CullSpotLight(uint2 id : SV_DISPATCHTHREADID) {
     uint lightCount = 0;
     uint3 lightCountIndex = uint3(id, 0);
 
-    for (uint i = 0; lightCount < MAXLIGHTPERTILE && i < _SpotLightCount; ++i) {
+    for (uint i = 0; lightCount < MAXSPOTLIGHTPERTILE && i < _SpotLightCount; ++i) {
         SpotLight light = _SpotLightBuffer[i];
         if (ConeIntersect(light.cone, planes) > .5) {
-            _CulledSpotLightTexture[uint3(id, lightCount + 1)] = i;
+            uint3 index = uint3(id, lightCount + 1);
+            _CulledSpotLightTexture[index] = i;
             lightCount++;
         }
         

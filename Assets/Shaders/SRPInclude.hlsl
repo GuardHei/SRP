@@ -56,10 +56,6 @@ TEXTURE2D_ARRAY_SHADOW(_SpotLightShadowmapArray);
 SAMPLER_CMP(sampler_SpotLightShadowmapArray);
 
 CBUFFER_START(UnityPerFrame)
-    float4x4 unity_MatrixVP;
-    float4 _WorldSpaceCameraPos;
-    float4 _ScreenParams;
-    float4 _ProjectionParams;
     float4 _OpaqueDepthTexture_ST;
     float4 _OpaqueNormalTexture_ST;
     float _AlphaTestDepthCutoff;

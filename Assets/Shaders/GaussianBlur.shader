@@ -137,8 +137,6 @@
                 ImageVertexOutput output;
                 output.clipPos = float4(input.pos.xy, 0, 1);
                 output.uv = TransformTriangleVertexToUV(input.pos);
-                // output.clipPos = float4(input.pos.xy * 2.0 - 1.0, 0, 1);
-                // output.uv = input.uv;
 
 #if UNITY_UV_STARTS_AT_TOP
                 output.uv = output.uv * float2(1.0, -1.0) + float2(0.0, 1.0);
@@ -151,9 +149,6 @@
 
             float4 Fragment(ImageVertexOutput input) : SV_TARGET {
                 float2 uv = input.uv;
-                // uv.y = 1 - uv.y;
-                return float4(1, 0, 0, 1);
-                return SAMPLE_TEXTURE2D(_OpaqueDepthTexture, sampler_OpaqueDepthTexture, uv);
                 return SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv);
             }
 

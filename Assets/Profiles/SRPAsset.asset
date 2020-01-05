@@ -25,7 +25,7 @@ MonoBehaviour:
       type: 3}
     sunlightParams:
       shadowOn: 1
-      shadowResolution: 4096
+      shadowResolution: 2048
       shadowCascades: 4
       shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
       shadowDistance: 100
@@ -40,7 +40,7 @@ MonoBehaviour:
       shadowResolution: 1024
       maxShadowCount: 10
     ditherTransparentParams:
-      blurOn: 0
+      blurOn: 1
       downSamples: 1
       iteration: 2
       blurRadius: 0.4

@@ -101,6 +101,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	public static readonly RenderTargetIdentifier PointLightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY);
 	public static readonly RenderTargetIdentifier SpotLightShadowmapArrayId = new RenderTargetIdentifier(ShaderManager.SPOT_LIGHT_SHADOWMAP_ARRAY);
 	public static readonly RenderTargetIdentifier DepthBoundId = new RenderTargetIdentifier(ShaderManager.DEPTH_BOUND_TEXTURE);
+	public static readonly RenderTargetIdentifier DepthMaskId = new RenderTargetIdentifier(ShaderManager.DEPTH_MASK_TEXTURE);
 	public static readonly RenderTargetIdentifier DepthFrustumId = new RenderTargetIdentifier(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
 	public static readonly RenderTargetIdentifier CulledPointLightId = new RenderTargetIdentifier(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
 	public static readonly RenderTargetIdentifier CulledSpotLightId = new RenderTargetIdentifier(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);
@@ -137,7 +138,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 	protected override void Render(ScriptableRenderContext context, Camera[] cameras) {
 		
 		GraphicsSettings.useScriptableRenderPipelineBatching = @params.enableSRPBatching;
-		
+
 		foreach (var camera in cameras) RenderScene(context, camera);
 	}
 
@@ -389,7 +390,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			_currentBuffer.Blit(TemporaryTexture2Id, TemporaryTexture1Id, @params.ditherTransparentParams.blurMaterial, 1);
 		}
 		
-		_currentBuffer.BlitWithDepth(TemporaryTexture1Id, ColorBufferId, OpaqueDepthId, @params.ditherTransparentParams.blurMaterial, 2);
+		_currentBuffer.BlitWithDepth(TemporaryTexture1Id, ColorBufferId, DepthId, @params.ditherTransparentParams.blurMaterial, 2);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TEMPORARY_TEXTURE_1);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.TEMPORARY_TEXTURE_2);
 		ExecuteCurrentBuffer(context);
@@ -416,12 +417,14 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var clipDistance = farClipPlane - nearClipPlane;
 		
 		var zBufferParams = new Vector4(clipDistance / nearClipPlane, 1, clipDistance / (farClipPlane * nearClipPlane), 1 / farClipPlane);
-		
+
 		_currentBuffer.SetGlobalFloat(ShaderManager.ALPHA_TEST_DEPTH_CUTOFF, @params.alphaTestDepthCutoff);
 		_currentBuffer.SetGlobalVector(ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
-		
-		context.ExecuteCommandBuffer(_currentBuffer);
-		_currentBuffer.Clear();
+		_currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
+		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.UNITY_MATRIX_V, viewMatrix);
+		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.UNITY_INVERSE_P, projectionMatrix.inverse);
+
+		ExecuteCurrentBuffer(context);
 
 // 只有在编辑器的模式下才需要构建UI的网格
 #if UNITY_EDITOR
@@ -470,8 +473,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		depthNormalDrawSettings.sortingSettings = sortingSettings;
 		filterSettings.renderQueueRange = ShaderManager.ALPHA_TEST_QUEUE_RANGE;
 		context.DrawRenderers(cull, ref depthNormalDrawSettings, ref filterSettings);
-		
-		// _currentBuffer.Blit(DepthId, OpaqueDepthId, MaterialManager.DepthCopyMaterial);
 
 		var screenThreadGroupsX = pixelWidth / 8;
 		var screenThreadGroupsY = pixelHeight / 8;
@@ -528,14 +529,23 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 
 		ExecuteCurrentBuffer(context);
 
+		var depthMaskKernel = @params.tbrComputeShader.FindKernel("GenerateDepthMask");
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthMaskKernel, ShaderManager.DEPTH_TEXTURE, DepthId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthMaskKernel, ShaderManager.OPAQUE_DEPTH_TEXTURE, OpaqueDepthId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthMaskKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthMaskKernel, ShaderManager.DEPTH_MASK_TEXTURE, DepthMaskId);
+		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthMaskKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
+		
+		ExecuteCurrentBuffer(context);
+
 		var depthFrustumKernel = @params.tbrComputeShader.FindKernel("GenerateDepthFrustum");
 		var cameraTransform = camera.transform;
 		var cameraForward = cameraTransform.forward;
 		var cameraPosition = cameraTransform.position;
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_FORWARD, cameraForward.x, cameraForward.y, cameraForward.z);
 		_currentBuffer.SetComputeFloatParams(@params.tbrComputeShader, ShaderManager.CAMERA_POSITION, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-		_currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
-		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
+		// _currentBuffer.SetComputeVectorParam(@params.tbrComputeShader, ShaderManager.Z_BUFFER_PARAMS, zBufferParams);
+		_currentBuffer.SetComputeMatrixParam(@params.tbrComputeShader, ShaderManager.UNITY_INVERSE_VP, (camera.projectionMatrix * camera.worldToCameraMatrix).inverse);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, depthFrustumKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, depthFrustumKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
@@ -674,6 +684,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var pointLightKernel = @params.tbrComputeShader.FindKernel("CullPointLight");
 		_currentBuffer.SetComputeIntParam(@params.tbrComputeShader, ShaderManager.POINT_LIGHT_COUNT, pointLightCount);
 		_currentBuffer.SetComputeBufferParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.POINT_LIGHT_BUFFER, _pointLightBuffer);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_BOUND_TEXTURE, DepthBoundId);
+		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_MASK_TEXTURE, DepthMaskId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.DEPTH_FRUSTUM_TEXTURE, DepthFrustumId);
 		_currentBuffer.SetComputeTextureParam(@params.tbrComputeShader, pointLightKernel, ShaderManager.CULLED_POINT_LIGHT_TEXTURE, CulledPointLightId);
 		_currentBuffer.DispatchCompute(@params.tbrComputeShader, pointLightKernel, tileThreadGroupsX, tileThreadGroupsY, 1);
@@ -794,10 +806,22 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 			volumeDepth = 6
 		};
 
-		var culledLightDescriptor = new RenderTextureDescriptor(tileWidth, tileHeight, GraphicsFormat.R16_UInt, 0) {
+		var culledPointLightDescriptor = new RenderTextureDescriptor(tileWidth, tileHeight, GraphicsFormat.R16_UInt, 0) {
 			enableRandomWrite = true,
 			dimension = TextureDimension.Tex3D,
 			volumeDepth = 17
+		};
+		
+		var culledSpotLightDescriptor = new RenderTextureDescriptor(tileWidth, tileHeight, GraphicsFormat.R16_UInt, 0) {
+			enableRandomWrite = true,
+			dimension = TextureDimension.Tex3D,
+			volumeDepth = 9
+		};
+		
+		var culledDecalDescriptor = new RenderTextureDescriptor(tileWidth, tileHeight, GraphicsFormat.R16_UInt, 0) {
+			enableRandomWrite = true,
+			dimension = TextureDimension.Tex3D,
+			volumeDepth = 5
 		};
 
 		var msaa = (int) @params.msaa;
@@ -807,10 +831,11 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat, msaa);
 		// _currentBuffer.GetTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP, sunlightShadowmapDescriptor, FilterMode.Bilinear);
-		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.RGHalf, RenderTextureReadWrite.Linear, 1, true);
+		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_MASK_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, GraphicsFormat.R32_UInt, 1, true);
+		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear, 1, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE, depthFrustumDescriptor, FilterMode.Point);
-		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, culledLightDescriptor, FilterMode.Point);
-		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, culledLightDescriptor, FilterMode.Point);
+		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE, culledPointLightDescriptor, FilterMode.Point);
+		_currentBuffer.GetTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE, culledSpotLightDescriptor, FilterMode.Point);
 	}
 
 	protected override void Dispose(bool disposing) {
@@ -839,6 +864,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_BOUND_TEXTURE);
+		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_MASK_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.DEPTH_FRUSTUM_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_POINT_LIGHT_TEXTURE);
 		_currentBuffer.ReleaseTemporaryRT(ShaderManager.CULLED_SPOT_LIGHT_TEXTURE);

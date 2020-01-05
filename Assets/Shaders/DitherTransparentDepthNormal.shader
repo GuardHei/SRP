@@ -43,6 +43,7 @@
             };
 
             CBUFFER_START(UnityPerMaterial)
+                float4 _Color;
                 float4 _AlphaTexture_ST;
             CBUFFER_END
 
@@ -59,7 +60,7 @@
             }
 
             float4 AlphaTestDepthFragment(AlphaTestDepthVertexOutput input, float4 screenPos : SV_POSITION) : SV_TARGET {
-                float alpha = _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
+                float alpha = _Color.a * _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
                 DitherClip64((uint2) screenPos.xy, alpha);
                 float3 normal = normalize(input.normal);
                 return float4(normal, 1);

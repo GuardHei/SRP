@@ -58,25 +58,24 @@
                 float t = c.r + c.g + c.b;
                 float a = 1 - c.r;
                 return float4(a, a , a, 1);
-                
+/*
                 uint2 lightTextureIndex = uint2(_ScreenParams.x * input.uv.x / 16.0, _ScreenParams.y * input.uv.y / 16.0);
                 uint lightCount = _CulledPointLightTexture[uint3(lightTextureIndex, 0)];
-                lightCount += _CulledSpotLightTexture[uint3(lightTextureIndex, 0)];
+                // lightCount += _CulledSpotLightTexture[uint3(lightTextureIndex, 0)];
                 // lightCount = min(lightCount, 1);
 
                 float4 color = float4(0, 0, 0, 1);
 
-/*
                 [loop]
                 for (uint i = 0; i < lightCount; ++i) {
                     PointLight light = _PointLightBuffer[_CulledPointLightTexture[uint3(lightTextureIndex, i + 1)]];
                     color.rgb = light.color;
                 }
-
+*/
                 // color = float4(lightTextureIndex.x / 160.0, lightTextureIndex.y / 90.0, 0, 1);
 
                 // return float4(input.uv, 0, 1);
-*/
+
 
                 switch (lightCount) {
                     case 1: color.r = 1; break;

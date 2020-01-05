@@ -17,13 +17,7 @@
             ZTest Equal
             ZWrite Off
 			Cull Back
-/*
-            Stencil {
-                Ref 1
-                Comp Always
-                ReadMask 1
-            }
-*/
+            
             HLSLPROGRAM
 			#pragma target 5.0
 

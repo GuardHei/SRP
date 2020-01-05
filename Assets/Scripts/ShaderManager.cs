@@ -13,6 +13,7 @@ public class ShaderManager {
 	public static readonly int DEPTH_TEXTURE = Shader.PropertyToID("_DepthTexture");
 	public static readonly int OPAQUE_DEPTH_TEXTURE = Shader.PropertyToID("_OpaqueDepthTexture");
 	public static readonly int OPAQUE_NORMAL_TEXTURE = Shader.PropertyToID("_OpaqueNormalTexture");
+	public static readonly int DEPTH_MASK_TEXTURE = Shader.PropertyToID("_DepthMaskTexture");
 	public static readonly int DEPTH_BOUND_TEXTURE = Shader.PropertyToID("_DepthBoundTexture");
 	public static readonly int DEPTH_FRUSTUM_TEXTURE = Shader.PropertyToID("_DepthFrustumTexture");
 	public static readonly int CULLED_POINT_LIGHT_TEXTURE = Shader.PropertyToID("_CulledPointLightTexture");
@@ -36,7 +37,9 @@ public class ShaderManager {
 	public static readonly int SUNLIGHT_INVERSE_VP = Shader.PropertyToID("sunlight_InverseVP");
 	public static readonly int SUNLIGHT_INVERSE_VP_ARRAY = Shader.PropertyToID("sunlight_InverseVPArray");
 	public static readonly int SUNLIGHT_SHADOW_SPLIT_BOUND_ARRAY = Shader.PropertyToID("_SunlightShadowSplitBoundArray");
-	public static readonly int INVERSE_VP = Shader.PropertyToID("_InverseVP");
+	public static readonly int UNITY_MATRIX_V = Shader.PropertyToID("unity_MatrixV");
+	public static readonly int UNITY_INVERSE_P = Shader.PropertyToID("unity_InverseP");
+	public static readonly int UNITY_INVERSE_VP = Shader.PropertyToID("unity_InverseVP");
 	public static readonly int POINT_LIGHT_COUNT = Shader.PropertyToID("_PointLightCount");
 	public static readonly int SPOT_LIGHT_COUNT = Shader.PropertyToID("_SpotLightCount");
 	public static readonly int POINT_LIGHT_BUFFER = Shader.PropertyToID("_PointLightBuffer");
