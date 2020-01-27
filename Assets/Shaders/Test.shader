@@ -71,11 +71,10 @@
                     PointLight light = _PointLightBuffer[_CulledPointLightTexture[uint3(lightTextureIndex, i + 1)]];
                     color.rgb = light.color;
                 }
-*/
+
                 // color = float4(lightTextureIndex.x / 160.0, lightTextureIndex.y / 90.0, 0, 1);
 
                 // return float4(input.uv, 0, 1);
-
 
                 switch (lightCount) {
                     case 1: color.r = 1; break;
@@ -90,14 +89,13 @@
                     case 10: color.gb = float2(1, 1); break;
                 }
 
-/*
                 if (lightCount == 1) color.r = 1;
                 else if (lightCount == 2) color.g = 1;
                 else if (lightCount == 3) color.b = 1;
                 else if (lightCount == 4) color.rg = float2(.5, .5);
-*/
                 
                 return color;
+*/
             }
 
 		    ENDHLSL

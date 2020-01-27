@@ -2,7 +2,7 @@
 
     Properties {
 	    _Color("Color", Color) = (0, 0, 0, 1)
-        _AlphaTexture("Alpha", 2D) = "gray" { }
+        _AlphaTexture("Alpha", 2D) = "white" { }
 	}
     
     SubShader {

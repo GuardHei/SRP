@@ -30,11 +30,15 @@ MonoBehaviour:
       shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
       shadowDistance: 100
     pointLightParams:
-      shadowOn: 0
+      enabled: 1
+      maxPerFrame: 200
+      shadowOn: 1
       softShadow: 0
       shadowResolution: 1024
       maxShadowCount: 10
     spotLightParams:
+      enabled: 1
+      maxPerFrame: 50
       shadowOn: 1
       softShadow: 1
       shadowResolution: 1024

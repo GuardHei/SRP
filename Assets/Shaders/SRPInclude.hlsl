@@ -247,9 +247,12 @@ float DefaultCascadedDirectionalShadow(float3 worldPos) {
 
 inline float PointHardShadow(float4 shadowPos, float index) {
     // return SAMPLE_TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray, sampler_PointLightShadowmapArray, shadowPos, index);
-    // return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, shadowPos.xyz);
-    return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
+    float shadow = _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
+    float depth = shadowPos.w;
+    // return depth < shadow;
+    return depth - shadow;
     return _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
+    return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
 }
 
 float PointSoftShadow(float4 shadowPos, float index) {
@@ -325,7 +328,8 @@ float DefaultSpotShadow(float3 worldPos, uint3 lightIndex) {
 
 inline float3 DefaultDirectionalLit(float3 worldPos, float3 worldNormal) {
     float diffuse = saturate(dot(worldNormal, _SunlightDirection));
-    return diffuse * _SunlightColor * DefaultCascadedDirectionalShadow(worldPos);
+    float shadow = DefaultCascadedDirectionalShadow(worldPos);
+    return diffuse * _SunlightColor * shadow;
 }
 
 inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
@@ -343,7 +347,9 @@ inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIn
     // return DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
     // return TestPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
     // return diffuse * light.color * TestPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
-    return diffuse * light.color * DefaultPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
+    float shadow = DefaultPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
+    // return shadow;
+    return diffuse * light.color * shadow;
 }
 
 inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightIndex) {
@@ -361,7 +367,8 @@ inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightInd
     spotFade = saturate((spotFade - cosAngle) * angleRangeInv);
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade * spotFade / distanceSqr;
-    return diffuse * light.color * DefaultSpotShadow(worldPos, lightIndex);
+    float shadow = DefaultSpotShadow(worldPos, lightIndex);
+    return diffuse * light.color * shadow;
 }
 
 //////////////////////////////////////

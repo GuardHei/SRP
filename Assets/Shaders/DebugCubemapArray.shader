@@ -38,7 +38,8 @@
 
             float4 Fragment(ImageVertexOutput input, float4 screenPos : SV_POSITION) : SV_TARGET {
                 float3 dir = float3(screenPos.zw, 1);
-                return _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(dir, _Index));
+                return float4(1, 0, 0, 1);
+                // return _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(dir, _Index));
             }
 
 		    ENDHLSL

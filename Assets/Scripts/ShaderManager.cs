@@ -54,8 +54,10 @@ public class ShaderManager {
 	// Keywords
 	public const string SUNLIGHT_SHADOWS = "_SUNLIGHT_SHADOWS";
 	public const string SUNLIGHT_SOFT_SHADOWS = "_SUNLIGHT_SOFT_SHADOWS";
+	public const string POINT_LIGHT = "_POINT_LIGHT";
 	public const string POINT_LIGHT_SHADOWS = "_POINT_LIGHT_SHADOWS";
 	public const string POINT_LIGHT_SOFT_SHADOWS = "_POINT_LIGHT_SOFT_SHADOWS";
+	public const string SPOT_LIGHT = "_SPOT_LIGHT";
 	public const string SPOT_LIGHT_SHADOWS = "_SPOT_LIGHT_SHADOWS";
 	public const string SPOT_LIGHT_SOFT_SHADOWS = "_SPOT_LIGHT_SOFT_SHADOWS";
 	
