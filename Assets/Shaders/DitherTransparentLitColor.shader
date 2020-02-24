@@ -16,7 +16,7 @@
         Pass {
 
             Tags { 
-                "RenderType"="Opaque"
+                "RenderType" = "Opaque"
             }
 
             ZTest Equal

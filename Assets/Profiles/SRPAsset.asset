@@ -34,7 +34,7 @@ MonoBehaviour:
       maxPerFrame: 200
       shadowOn: 1
       softShadow: 0
-      shadowResolution: 1024
+      shadowResolution: 512
       maxShadowCount: 10
     spotLightParams:
       enabled: 1
@@ -44,13 +44,13 @@ MonoBehaviour:
       shadowResolution: 1024
       maxShadowCount: 10
     ditherTransparentParams:
-      blurOn: 1
+      blurOn: 0
       downSamples: 1
-      iteration: 2
+      iteration: 1
       blurRadius: 0.4
       blurMaterial: {fileID: 2100000, guid: 91224c5cbba514b418a1d6cbae56ea58, type: 2}
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
     depthBoundOn: 0
-    gizmosOn: 0
+    gizmosOn: 1
     testInt: 0

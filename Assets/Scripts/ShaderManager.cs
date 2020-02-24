@@ -27,6 +27,7 @@ public class ShaderManager {
 	public static readonly int BLUR_RADIUS = Shader.PropertyToID("_BlurRadius");
 	public static readonly int SHADOW_BIAS = Shader.PropertyToID("_ShadowBias");
 	public static readonly int SHADOW_NORMAL_BIAS = Shader.PropertyToID("_ShadowNormalBias");
+	public static readonly int LIGHT_POS = Shader.PropertyToID("_LightPos");
 	public static readonly int SUNLIGHT_COLOR = Shader.PropertyToID("_SunlightColor");
 	public static readonly int SUNLIGHT_DIRECTION = Shader.PropertyToID("_SunlightDirection");
 	public static readonly int SUNLIGHT_SHADOW_DISTANCE = Shader.PropertyToID("_SunlightShadowDistance");

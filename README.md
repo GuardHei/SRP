@@ -6,21 +6,21 @@ A customized forward+ render pipeline for Unity
 ## Planned Features
 1. Supports forward+ render path (Implemented)
 2. Supports tile-based light culling with transparent objects (Implemented - Both dither transparent & transparent)
-3. Supports realtime directional light (Implemented) \ spot light (Implemented) \ point light shadows
+3. Supports realtime directional light shadows (Hard / Soft Implemented) / spot light shadows (Hard / Soft Implemented) / point light shadows (Hard Implemented)
 4. Supports cascaded shadowmap for directional light (Implemented)
 5. Supports volumetric lighting
 
 ## Possible Features
 1. Built-in nonphotorealistic render pipeline
 2. Built-in GPU grass
-3. Built-in post-process stack
+3. Built-in post-processing stack
 
 ## Graphic API
 1. DX11+ on Windows
 2. Metal on Mac
 3. OpenGL 4.5+ on Linux
 
-PS: Graphic APIs that support Compute Shaders. Geometry shader is not necessary.
+PS: Graphic APIs that support Compute Shaders.
 
 ## Docs
 Not ready yet

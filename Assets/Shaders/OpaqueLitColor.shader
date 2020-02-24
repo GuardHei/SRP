@@ -92,7 +92,7 @@
         Pass {
 
             Tags { 
-                "LightMode"="ShadowCaster"
+                "LightMode" = "ShadowCaster"
             }
 
             HLSLPROGRAM

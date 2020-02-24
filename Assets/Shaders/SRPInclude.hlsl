@@ -47,9 +47,7 @@ SAMPLER_CMP(sampler_SunlightShadowmapArray);
 TEXTURECUBE_SHADOW(_PointLightShadowmap);
 SAMPLER(sampler_PointLightShadowmap);
 
-// TEXTURECUBE_SHADOW(_PointLightShadowmapArray);
 TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray);
-// SAMPLER_CMP(sampler_PointLightShadowmapArray);
 SAMPLER(sampler_PointLightShadowmapArray);
 
 TEXTURE2D_ARRAY_SHADOW(_SpotLightShadowmapArray);
@@ -80,6 +78,7 @@ CBUFFER_START(Shadow)
     float _SpotLightShadowmap_ST;
     float4 _PointLightShadowmapSize;
     float4 _SpotLightShadowmapSize;
+    float4 _LightPos;
 CBUFFER_END
 
 CBUFFER_START(Sunlight)
@@ -126,6 +125,11 @@ struct SimpleVertexOutput {
 struct ImageVertexOutput {
     float4 clipPos : SV_POSITION;
     float2 uv : TEXCOORD0;
+};
+
+struct ShadowVertexOutput {
+    float4 clipPos : SV_POSITION;
+    float3 worldPos : TEXCOORD0;
 };
 
 ///////////////////////////////
@@ -191,7 +195,7 @@ inline float4 ShadowNormalBias(float4 worldPos, float3 worldNormal) {
     float shadowSin = SinOf(shadowCos);
     float normalBias = _ShadowNormalBias * shadowSin;
     worldPos -= float4(worldNormal * normalBias, 0);
-    return GetClipPosition(worldPos);
+    return worldPos;
 }
 
 inline float4 ClipSpaceShadowBias(float4 clipPos) {
@@ -246,13 +250,9 @@ float DefaultCascadedDirectionalShadow(float3 worldPos) {
 }
 
 inline float PointHardShadow(float4 shadowPos, float index) {
-    // return SAMPLE_TEXTURECUBE_ARRAY_SHADOW(_PointLightShadowmapArray, sampler_PointLightShadowmapArray, shadowPos, index);
     float shadow = _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
     float depth = shadowPos.w;
-    // return depth < shadow;
-    return depth - shadow;
-    return _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
-    return shadowPos.w < _PointLightShadowmapArray.Sample(sampler_PointLightShadowmapArray, float4(shadowPos.xyz, index));
+    return depth < shadow;
 }
 
 float PointSoftShadow(float4 shadowPos, float index) {
@@ -267,7 +267,6 @@ float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 li
     uint shadowIndex = light.shadowIndex;
     if (shadowIndex == 0) return 1;
     shadowIndex--;
-    // lightDir *= float3(-1, -1, 1);
     float4 shadowPos = float4(lightDir, depth);
 #if !defined(_POINT_LIGHT_SOFT_SHADOWS)
     float shadowAttenuation = PointHardShadow(shadowPos, shadowIndex);
@@ -275,21 +274,6 @@ float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 li
     float shadowAttenuation = PointSoftShadow(shadowPos, shadowIndex);
 #endif
     return lerp(1, shadowAttenuation, light.shadowStrength);
-#endif
-}
-
-float3 TestPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 lightIndex) {
-#if !defined(_POINT_LIGHT_SHADOWS)
-    return 1;
-#else
-    PointLight light = _PointLightBuffer[_CulledPointLightTexture[lightIndex]];
-    uint shadowIndex = light.shadowIndex;
-    if (shadowIndex == 0) return 1;
-    // lightDir *= float3(-1, -1, 1);
-    return lightDir;
-    float4 shadowPos = float4(lightDir, depth);
-    float shadowAttenuation = SAMPLE_TEXTURECUBE(_PointLightShadowmap, sampler_PointLightShadowmap, lightDir);
-    return shadowAttenuation;
 #endif
 }
 
@@ -344,11 +328,7 @@ inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIn
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade / distanceSqr;
     float radius = light.sphere.w;
-    // return DefaultPointShadow(worldPos, lightDir, lightDist / radius, lightIndex);
-    // return TestPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
-    // return diffuse * light.color * TestPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
     float shadow = DefaultPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
-    // return shadow;
     return diffuse * light.color * shadow;
 }
 
@@ -398,17 +378,18 @@ float4 NoneFragment(BasicVertexOutput input) : SV_TARGET {
     return 0;
 }
 
-BasicVertexOutput ShadowCasterVertex(SimpleVertexInput input) {
+ShadowVertexOutput ShadowCasterVertex(SimpleVertexInput input) {
     UNITY_SETUP_INSTANCE_ID(input);
-    BasicVertexOutput output;
+    ShadowVertexOutput output;
     float3 worldNormal = GetWorldNormal(input.normal);
     float4 worldPos = GetWorldPosition(input.pos.xyz);
-    output.clipPos = ClipSpaceShadowBias(ShadowNormalBias(worldPos, worldNormal));
+    output.worldPos = worldPos;
+    output.clipPos = ClipSpaceShadowBias(GetClipPosition(ShadowNormalBias(worldPos, worldNormal)));
     return output;
 }
 
-float4 ShadowCasterFragment(BasicVertexOutput input) : SV_TARGET {
-    return 0;
+float4 ShadowCasterFragment(ShadowVertexOutput input) : SV_TARGET {
+    return distance(input.worldPos.xyz, _LightPos.xyz) / _LightPos.w;
 }
 
 #endif // SRP_INCLUDE
