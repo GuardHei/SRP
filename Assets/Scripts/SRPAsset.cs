@@ -241,39 +241,6 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		ExecuteCurrentBuffer();
 	}
 
-	private void RenderPointLightShadow(CullingResults cull, Light light, int lightIndex) {
-		_currentBuffer.GetTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
-		_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_BIAS, light.shadowBias);
-		_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_NORMAL_BIAS, light.shadowNormalBias);
-		
-		var shadowSettings = new ShadowDrawingSettings(cull, lightIndex);
-		
-		for (var i = 0; i < 6; i++) {
-			ResetRenderTarget(PointLightShadowmapId, (CubemapFace) i, 0, true, true, 1, Color.white);
-			if (!cull.ComputePointShadowMatricesAndCullingPrimitives(lightIndex, (CubemapFace) i, 0, out var viewMatrix, out var projectionMatrix, out var splitData)) {
-				ExecuteCurrentBuffer();
-				continue;
-			}
-
-			shadowSettings.splitData = splitData;
-				
-			_currentBuffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
-			
-			ExecuteCurrentBuffer();
-				
-			_context.DrawShadows(ref shadowSettings);
-		}
-		
-		var inverseShadowmapSize = 1f / @params.pointLightParams.shadowResolution;
-		
-		_currentBuffer.SetGlobalVector(ShaderManager.POINT_LIGHT_SHADOWMAP_SIZE, new Vector4(inverseShadowmapSize, inverseShadowmapSize, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution));
-		
-		if (@params.pointLightParams.softShadow) _currentBuffer.EnableShaderKeyword(ShaderManager.POINT_LIGHT_SOFT_SHADOWS);
-		else _currentBuffer.DisableShaderKeyword(ShaderManager.POINT_LIGHT_SOFT_SHADOWS);
-		
-		ExecuteCurrentBuffer();
-	}
-
 	private void RenderPointLightShadow(CullingResults cull, int shadowLightCount, Light[] shadowLights, int[] shadowLightIndices) {
 		var pointLightShadowmapDescriptor = new RenderTextureDescriptor(@params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, RenderTextureFormat.RHalf, 16) {
 			autoGenerateMips = false,
@@ -289,9 +256,9 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		};
 		
 		_currentBuffer.GetTemporaryRT(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY, pointLightShadowmapDescriptor, FilterMode.Bilinear);
-		// _currentBuffer.GetTemporaryRTArray(ShaderManager.POINT_LIGHT_SHADOWMAP_ARRAY, @params.pointLightParams.shadowResolution, @params.pointLightParams.shadowResolution, shadowSlices, 16, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
 
 		for (var i = 0; i < shadowLightCount; i++) {
+			if (!cull.GetShadowCasterBounds(shadowLightIndices[i], out var shadowBounds)) continue;
 			var light = shadowLights[i];
 			_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_BIAS, light.shadowBias);
 			_currentBuffer.SetGlobalFloat(ShaderManager.SHADOW_NORMAL_BIAS, light.shadowNormalBias);

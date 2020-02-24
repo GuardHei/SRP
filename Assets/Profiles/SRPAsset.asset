@@ -32,7 +32,7 @@ MonoBehaviour:
     pointLightParams:
       enabled: 1
       maxPerFrame: 200
-      shadowOn: 1
+      shadowOn: 0
       softShadow: 0
       shadowResolution: 512
       maxShadowCount: 10
@@ -52,5 +52,5 @@ MonoBehaviour:
     testMaterialOn: 0
     testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
     depthBoundOn: 0
-    gizmosOn: 1
+    gizmosOn: 0
     testInt: 0
