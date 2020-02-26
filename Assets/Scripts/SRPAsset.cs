@@ -400,7 +400,7 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 #endif
 		
 		// Object culling
-		// todo maybe add gpu culling pipeline in the future (compute shader based, AABB/OBB intersection tests)
+		// todo maybe add gpu culling pipeline in the future (compute shader based, AABB/OBB intersection tests)ss
 		if (!camera.TryGetCullingParameters(out var cullingParameters)) return;
 		cullingParameters.shadowDistance = Mathf.Min(@params.sunlightParams.shadowDistance, farClipPlane);
 		var cull = _context.Cull(ref cullingParameters);
@@ -779,8 +779,8 @@ public sealed unsafe class SRPipeline : RenderPipeline {
 		var msaa = (int) @params.msaa;
 		
 		_currentBuffer.GetTemporaryRT(ShaderManager.COLOR_BUFFER, pixelWidth, pixelHeight, 0, FilterMode.Bilinear, RenderTextureFormat.Default, RenderTextureReadWrite.Default, msaa);
-		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
-		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 16, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa, true);
+		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_TEXTURE, pixelWidth, pixelHeight, 32, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa);
+		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_DEPTH_TEXTURE, pixelWidth, pixelHeight, 24, FilterMode.Bilinear, RenderTextureFormat.Depth, RenderTextureReadWrite.Default, msaa, true);
 		_currentBuffer.GetTemporaryRT(ShaderManager.OPAQUE_NORMAL_TEXTURE, pixelWidth, pixelHeight, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat, msaa);
 		// _currentBuffer.GetTemporaryRT(ShaderManager.SUNLIGHT_SHADOWMAP, sunlightShadowmapDescriptor, FilterMode.Bilinear);
 		_currentBuffer.GetTemporaryRT(ShaderManager.DEPTH_MASK_TEXTURE, tileWidth, tileHeight, 0, FilterMode.Point, GraphicsFormat.R32_UInt, 1, true);

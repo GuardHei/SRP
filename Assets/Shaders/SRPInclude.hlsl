@@ -20,6 +20,14 @@ static const float DITHER_THRESHOLDS_64[64] = {
     64, 32, 56, 24, 62, 30, 54, 22
 };
 
+static const float3 POINT_LIGHT_PCF_OFFSET_20[20] = {
+    float3(1, 1, 1), float3(1, -1, 1), float3(-1, -1, 1), float3(-1, 1, 1),
+    float3(1, 1, -1), float3(1, -1, -1), float3(-1, -1, -1), float3(-1, 1, -1),
+    float3(1, 1, 0), float3(1, -1, 0), float3(-1, -1, 0), float3(-1, 1, 0),
+    float3(1, 0, 1), float3(-1, 0, 1), float3(1, 0, -1), float3(-1, 0, -1),
+    float3(0, 1, 1), float3(0, -1, 1), float3(0, -1, -1), float3(0, 1, -1)
+};
+
 StructuredBuffer<PointLight> _PointLightBuffer;
 StructuredBuffer<SpotLight> _SpotLightBuffer;
 
@@ -256,7 +264,13 @@ inline float PointHardShadow(float4 shadowPos, float index) {
 }
 
 float PointSoftShadow(float4 shadowPos, float index) {
-    return PointHardShadow(shadowPos, index);
+    //todo gonna replace this naive PCF method (terrible performance & graphic)
+    const float diskRadius = .0015;
+    float attenuation = 0;
+    [unroll]
+    for (uint i = 0; i < 20; i++) attenuation += PointHardShadow(float4(shadowPos.xyz + POINT_LIGHT_PCF_OFFSET_20[i] * diskRadius, shadowPos.w), index);
+    attenuation /= 20.0;
+    return attenuation;
 }
 
 float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 lightIndex) {

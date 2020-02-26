@@ -15,7 +15,7 @@ MonoBehaviour:
   params:
     enableDynamicBatching: 0
     enableInstancing: 1
-    enableSRPBatching: 0
+    enableSRPBatching: 1
     msaa: 1
     resolutionRatio: 0.5
     depthTileResolution: 16
@@ -32,9 +32,9 @@ MonoBehaviour:
     pointLightParams:
       enabled: 1
       maxPerFrame: 200
-      shadowOn: 0
-      softShadow: 0
-      shadowResolution: 512
+      shadowOn: 1
+      softShadow: 1
+      shadowResolution: 256
       maxShadowCount: 10
     spotLightParams:
       enabled: 1
@@ -44,7 +44,7 @@ MonoBehaviour:
       shadowResolution: 1024
       maxShadowCount: 10
     ditherTransparentParams:
-      blurOn: 0
+      blurOn: 1
       downSamples: 1
       iteration: 1
       blurRadius: 0.4
