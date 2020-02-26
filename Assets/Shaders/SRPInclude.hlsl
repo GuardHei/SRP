@@ -20,12 +20,16 @@ static const float DITHER_THRESHOLDS_64[64] = {
     64, 32, 56, 24, 62, 30, 54, 22
 };
 
-static const float3 POINT_LIGHT_PCF_OFFSET_20[20] = {
-    float3(1, 1, 1), float3(1, -1, 1), float3(-1, -1, 1), float3(-1, 1, 1),
-    float3(1, 1, -1), float3(1, -1, -1), float3(-1, -1, -1), float3(-1, 1, -1),
-    float3(1, 1, 0), float3(1, -1, 0), float3(-1, -1, 0), float3(-1, 1, 0),
-    float3(1, 0, 1), float3(-1, 0, 1), float3(1, 0, -1), float3(-1, 0, -1),
-    float3(0, 1, 1), float3(0, -1, 1), float3(0, -1, -1), float3(0, 1, -1)
+static const float4 POINT_LIGHT_PCF_OFFSET_6[6] = {
+    float4(1, 0, 0, 0.1666667), float4(-1, 0, 0, 0.1666667), float4(0, 1, 0, 0.1666667), float4(0, -1, 0, 0.1666667), float4(0, 0, 1, 0.1666667), float4(0, 0, -1, 0.1666667)
+};
+
+static const float4 POINT_LIGHT_PCF_OFFSET_20[20] = {
+    float4(1, 1, 1, 1.861362E-11), float4(1, -1, 1, 1.861362E-11), float4(-1, -1, 1, 1.861362E-11), float4(-1, 1, 1, 1.861362E-11),
+    float4(1, 1, -1, 1.861362E-11), float4(1, -1, -1, 1.861362E-11), float4(-1, -1, -1, 1.861362E-11), float4(-1, 1, -1, 1.861362E-11),
+    float4(1, 1, 0, 0.08333334), float4(1, -1, 0, 0.08333334), float4(-1, -1, 0, 0.08333334), float4(-1, 1, 0, 0.08333334),
+    float4(1, 0, 1, 0.08333334), float4(-1, 0, 1, 0.08333334), float4(1, 0, -1, 0.08333334), float4(-1, 0, -1, 0.08333334),
+    float4(0, 1, 1, 0.08333334), float4(0, -1, 1, 0.08333334), float4(0, -1, -1, 0.08333334), float4(0, 1, -1, 0.08333334)
 };
 
 StructuredBuffer<PointLight> _PointLightBuffer;
@@ -265,11 +269,15 @@ inline float PointHardShadow(float4 shadowPos, float index) {
 
 float PointSoftShadow(float4 shadowPos, float index) {
     //todo gonna replace this naive PCF method (terrible performance & graphic)
-    const float diskRadius = .0015;
+    const float diskRadius = .001;
     float attenuation = 0;
+    /*
     [unroll]
-    for (uint i = 0; i < 20; i++) attenuation += PointHardShadow(float4(shadowPos.xyz + POINT_LIGHT_PCF_OFFSET_20[i] * diskRadius, shadowPos.w), index);
+    for (uint i = 0; i < 20; i++) attenuation += PointHardShadow(float4(shadowPos.xyz + POINT_LIGHT_PCF_OFFSET_20[i].xyz * diskRadius, shadowPos.w), index);
     attenuation /= 20.0;
+    */
+    [unroll]
+    for (uint i = 0; i < 6; i++) attenuation += PointHardShadow(float4(shadowPos.xyz + POINT_LIGHT_PCF_OFFSET_6[i].xyz * diskRadius, shadowPos.w), index) * POINT_LIGHT_PCF_OFFSET_6[i].w; 
     return attenuation;
 }
 
