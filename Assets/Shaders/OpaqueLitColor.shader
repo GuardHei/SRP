@@ -6,8 +6,8 @@
     
     SubShader {
 
-        UsePass "SRP/OpaqueDepthNormal/DEPTHNORMAL"
-
+        UsePass "SRP/OpaqueDepth/DEPTH"
+/*
         Pass {
 
             Tags { 
@@ -36,7 +36,8 @@
             struct VertexOutput {
                 float4 clipPos : SV_POSITION;
                 float4 worldPos : TEXCOORD0;
-                float3 viewDir : TEXCOORD1;
+                float3 normal : TEXCOORD1;
+                float3 viewDir : TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -44,12 +45,13 @@
                 UNITY_DEFINE_INSTANCED_PROP(float3, _Color)
             UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
-            VertexOutput Vertex(BasicVertexInput input) {
+            VertexOutput Vertex(SimpleVertexInput input) {
                 VertexOutput output;
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
                 output.worldPos = GetWorldPosition(input.pos.xyz);
                 output.clipPos = GetClipPosition(output.worldPos);
+                output.normal = GetWorldNormal(input.normal);
                 output.viewDir = normalize(WorldSpaceViewDirection(output.worldPos));
                 return output;
             }
@@ -60,7 +62,7 @@
                 uint2 screenIndex = screenPos.xy;
 
                 float3 color = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Color).rgb;
-                float3 normal = _OpaqueNormalTexture[screenIndex];
+                float3 normal = normalize(input.normal);
 
                 uint2 lightTextureIndex = screenIndex / 16;
                 uint3 lightCountIndex = uint3(lightTextureIndex, 0);
@@ -88,26 +90,6 @@
 
 		    ENDHLSL
         }
-
-        Pass {
-
-            Tags { 
-                "LightMode" = "ShadowCaster"
-            }
-
-            HLSLPROGRAM
-			
-			#pragma target 3.5
-
-            #pragma vertex ShadowCasterVertex
-			#pragma fragment ShadowCasterFragment
-			
-			#pragma multi_compile_instancing
-			#pragma instancing_options assumeuniformscaling
-
-            #include "SRPInclude.hlsl"
-
-			ENDHLSL
-        }
+*/
     }
 }

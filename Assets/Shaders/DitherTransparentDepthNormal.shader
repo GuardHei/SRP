@@ -74,7 +74,7 @@
             Name "SHADOWCASTER"
 
             Tags {
-                "LightMode"="ShadowCaster"
+                "LightMode" = "ShadowCaster"
             }
 
             HLSLPROGRAM
@@ -98,10 +98,12 @@
 
             struct DitherTransparentShadowCasterVertexOutput {
                 float4 clipPos : SV_POSITION;
-                float2 uv : TEXCOORD0;
+                float4 worldPos : TEXCOORD0;
+                float2 uv : TEXCOORD1;
             };
 
             CBUFFER_START(UnityPerMaterial)
+                float4 _Color;
                 float4 _AlphaTexture_ST;
             CBUFFER_END
 
@@ -113,15 +115,16 @@
                 UNITY_SETUP_INSTANCE_ID(input);
                 float3 worldNormal = GetWorldNormal(input.normal);
                 float4 worldPos = GetWorldPosition(input.pos.xyz);
-                output.clipPos = ClipSpaceShadowBias(ShadowNormalBias(worldPos, worldNormal));
+                output.clipPos = ClipSpaceShadowBias(GetClipPosition(ShadowNormalBias(worldPos, worldNormal)));
+                output.worldPos = worldPos;
                 output.uv = TRANSFORM_TEX(input.uv, _AlphaTexture);
                 return output;
             }
 
             float4 DitherTransparentShadowCasterFragment(DitherTransparentShadowCasterVertexOutput input, float4 screenPos : SV_POSITION) : SV_TARGET {
-                float alpha = _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
+                float alpha = _Color.a * _AlphaTexture.Sample(sampler_AlphaTexture, input.uv).r;
                 DitherClip64((uint2) screenPos.xy, alpha);
-                return float4(0, 0, 0, 0);
+                return distance(input.worldPos.xyz, _LightPos.xyz) / _LightPos.w;
             }
 
 			ENDHLSL

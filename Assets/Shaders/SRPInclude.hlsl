@@ -245,7 +245,7 @@ float DefaultCascadedDirectionalShadow(float3 worldPos) {
 #if !defined(_SUNLIGHT_SHADOWS)
     return 1;
 #else
-    float3 diff = worldPos - _WorldSpaceCameraPos; 
+    float3 diff = worldPos - _WorldSpaceCameraPos.xyz; 
     if (dot(diff, diff) > _SunlightShadowDistance * _SunlightShadowDistance) return 1;
     float4 cascadeFlags = float4(VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[0]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[1]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[2]), VertexInsideSphere(worldPos, _SunlightShadowSplitBoundArray[3]));
     cascadeFlags.yzw = saturate(cascadeFlags.yzw - cascadeFlags.xyz);
@@ -267,21 +267,21 @@ inline float PointHardShadow(float4 shadowPos, float index) {
     return depth < shadow;
 }
 
-float PointSoftShadow(float4 shadowPos, float index) {
-    //todo gonna replace this naive PCF method (terrible performance & graphic)
-    const float diskRadius = .001;
+float PointSoftShadow(float4 shadowPos, float index, float viewDist) {
+    //todo gonna replace this naive PCF method (terrible shadow bands & performance)
+    float diskRadius = (1.0 - viewDist * _ZBufferParams.w) * 0.002;
     float attenuation = 0;
-    /*
     [unroll]
     for (uint i = 0; i < 20; i++) attenuation += PointHardShadow(float4(shadowPos.xyz + POINT_LIGHT_PCF_OFFSET_20[i].xyz * diskRadius, shadowPos.w), index);
     attenuation /= 20.0;
-    */
+    /* low sample count but much more terrible shadow bands
     [unroll]
     for (uint i = 0; i < 6; i++) attenuation += PointHardShadow(float4(shadowPos.xyz + POINT_LIGHT_PCF_OFFSET_6[i].xyz * diskRadius, shadowPos.w), index) * POINT_LIGHT_PCF_OFFSET_6[i].w; 
+    */
     return attenuation;
 }
 
-float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 lightIndex) {
+float DefaultPointShadow(float viewDist, float3 lightDir, float depth, uint3 lightIndex) {
 #if !defined(_POINT_LIGHT_SHADOWS)
     return 1;
 #else
@@ -293,7 +293,7 @@ float DefaultPointShadow(float3 worldPos, float3 lightDir, float depth, uint3 li
 #if !defined(_POINT_LIGHT_SOFT_SHADOWS)
     float shadowAttenuation = PointHardShadow(shadowPos, shadowIndex);
 #else
-    float shadowAttenuation = PointSoftShadow(shadowPos, shadowIndex);
+    float shadowAttenuation = PointSoftShadow(shadowPos, shadowIndex, viewDist);
 #endif
     return lerp(1, shadowAttenuation, light.shadowStrength);
 #endif
@@ -350,7 +350,7 @@ inline float3 DefaultPointLit(float3 worldPos, float3 worldNormal, uint3 lightIn
     float diffuse = saturate(dot(worldNormal, lightDir));
     diffuse *= rangeFade / distanceSqr;
     float radius = light.sphere.w;
-    float shadow = DefaultPointShadow(worldPos, -lightDir, lightDist / radius, lightIndex);
+    float shadow = DefaultPointShadow(distance(worldPos, _WorldSpaceCameraPos), -lightDir, lightDist / radius, lightIndex);
     return diffuse * light.color * shadow;
 }
 
@@ -364,7 +364,7 @@ inline float3 DefaultSpotLit(float3 worldPos, float3 worldNormal, uint3 lightInd
     rangeFade = saturate(1.0 - rangeFade * rangeFade);
     rangeFade *= rangeFade;
     float cosAngle = cos(light.cone.angle);
-    float angleRangeInv = 1 / max(cos(light.smallAngle) - cosAngle, .00001);
+    float angleRangeInv = 1.0 / max(cos(light.smallAngle) - cosAngle, .00001);
     float spotFade = dot(light.cone.direction, lightDir);
     spotFade = saturate((spotFade - cosAngle) * angleRangeInv);
     float diffuse = saturate(dot(worldNormal, lightDir));

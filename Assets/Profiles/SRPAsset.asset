@@ -9,32 +9,37 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b3e2b0c7a63954483899575263c80a34, type: 3}
+  m_Script: {fileID: 0}
   m_Name: SRPAsset
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Assembly-CSharp::SRPAsset
   params:
-    enableDynamicBatching: 0
+    enableDynamicBatching: 1
     enableInstancing: 1
     enableSRPBatching: 1
-    msaa: 1
-    resolutionRatio: 0.5
-    depthTileResolution: 16
+    enableDynamicScaling: 0
+    enableRenderScaling: 0
+    renderScale: 1
+    clusterGridX: 16
+    clusterGridY: 9
+    clusterGridZ: 24
     alphaTestDepthCutoff: 0.001
-    tbrComputeShader: {fileID: 7200000, guid: cfe11d383a0604dd0ac41c8200327321, type: 3}
-    generalComputeShader: {fileID: 7200000, guid: 41a3c78fcbfdb40f1aa1a053a7e60b22,
-      type: 3}
-    sunlightParams:
+    clusterCullingComputeShader: {fileID: 0}
+    generalComputeShader: {fileID: 0}
+    directionalLightParams:
+      enabled: 1
+      maxPerFrame: 2
       shadowOn: 1
-      shadowResolution: 2048
+      shadowResolution: 1024
       shadowCascades: 4
       shadowCascadeSplits: {x: 0.067, y: 0.2, z: 0.467}
       shadowDistance: 100
+      maxShadowCount: 1
     pointLightParams:
       enabled: 1
       maxPerFrame: 200
       shadowOn: 1
       softShadow: 1
-      shadowResolution: 256
+      shadowResolution: 1024
       maxShadowCount: 10
     spotLightParams:
       enabled: 1
@@ -45,12 +50,12 @@ MonoBehaviour:
       maxShadowCount: 10
     ditherTransparentParams:
       blurOn: 1
-      downSamples: 1
+      downSamples: 2
       iteration: 1
-      blurRadius: 0.4
-      blurMaterial: {fileID: 2100000, guid: 91224c5cbba514b418a1d6cbae56ea58, type: 2}
+      blurRadius: 0
+      blurMaterial: {fileID: 0}
     testMaterialOn: 0
-    testMaterial: {fileID: 2100000, guid: 6bcc079d8de804e0ebe3c92a0944d219, type: 2}
+    testMaterial: {fileID: 0}
     depthBoundOn: 0
-    gizmosOn: 0
+    gizmosOn: 1
     testInt: 0
